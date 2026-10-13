@@ -34,7 +34,7 @@
       });
       card.appendChild(mini);
       const a1 = el("button", { class: "btn ghost", text: "Ganzer Tag" });
-      a1.onclick = () => UC.calendar.showDay(day);
+      a1.onclick = () => UC.app.showDay(day);
       const a2 = el("button", { class: "btn", text: "Im Chat öffnen" });
       a2.onclick = () => UC.app.openInChat(info.first, { align: "top" });
       card.appendChild(el("div", { class: "actions" }, a1, a2));

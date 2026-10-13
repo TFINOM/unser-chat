@@ -573,3 +573,23 @@ a { color: var(--link); }
 
 .placeholder .ico svg { width: 20px; height: 20px; vertical-align: -4px; }
 .sys-chip { border-radius: 10px; font-size: 13px; box-shadow: var(--shadow); }
+
+/* ---- Feinabgleich nach Screenshots der Chat-Übersicht (Tableiste, Suche, Filter-Chips) ---- */
+:root { --glass: rgba(254, 254, 254, 0.86); --tab-on: #ececec; --search-bg: #f5f5f5; --chip-line: #e2e2e2; --chip-on-bg: #dffbd5; --chip-on-text: #0a0a0a; --chip-on-line: #c3ecb6; }
+:root[data-theme="dark"] { --glass: rgba(29, 29, 29, 0.88); --tab-on: #3e3e3e; --search-bg: #222222; --chip-line: #2c2c2c; --chip-on-bg: #1a3429; --chip-on-text: #d9fdd3; --chip-on-line: #1a3429; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --glass: rgba(29, 29, 29, 0.88); --tab-on: #3e3e3e; --search-bg: #222222; --chip-line: #2c2c2c; --chip-on-bg: #1a3429; --chip-on-text: #d9fdd3; --chip-on-line: #1a3429; }
+}
+:root { --tabbar-h: 62px; }
+#tabbar { left: 20px; right: 20px; padding: 4px; }
+#tabbar button { color: var(--text); font-weight: 500; font-size: 11px; }
+#tabbar button.on { background: var(--tab-on); color: var(--text); font-weight: 600; }
+.topbar.big h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.6px; }
+.search-box { height: 44px; border-radius: 22px; background: var(--search-bg); padding: 0 14px; }
+.search-box input::placeholder { color: var(--text-3); }
+.chip { background: transparent; border: 1px solid var(--chip-line); color: var(--text); font-weight: 500; padding: 6px 14px; border-radius: 18px; font-size: 15px; }
+.chip.on { background: var(--chip-on-bg); border-color: var(--chip-on-line); color: var(--chip-on-text); font-weight: 600; }
+.seg { border-radius: 22px; padding: 3px; background: var(--search-bg); }
+.seg button { border-radius: 19px; }
+.goto input[type="date"] { border-radius: 22px; background: var(--search-bg); }
+.card { border-radius: 20px; }

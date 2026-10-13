@@ -185,7 +185,7 @@
 
     // Rekorde
     const recs = el("div");
-    if (st.busiest >= 0) recs.appendChild(rec("🔥", "Aktivster Tag", UC.fmtDate(st.busiest * 86400, "wmed") + " · " + UC.fmtNum(st.busiestN) + " Nachrichten", () => UC.calendar.showDay(st.busiest)));
+    if (st.busiest >= 0) recs.appendChild(rec("🔥", "Aktivster Tag", UC.fmtDate(st.busiest * 86400, "wmed") + " · " + UC.fmtNum(st.busiestN) + " Nachrichten", () => UC.app.showDay(st.busiest)));
     if (st.longest >= 0) recs.appendChild(rec("📜", "Längste Nachricht", D.name(D.M[st.longest][D.S]) + " · " + UC.fmtNum(st.longestLen) + " Zeichen · " + UC.fmtDate(D.M[st.longest][D.T], "med"), () => UC.app.openInChat(st.longest, { flash: true })));
     if (st.streak > 1) recs.appendChild(rec("📆", "Längste Serie", UC.fmtNum(st.streak) + " Tage ohne Pause, bis " + UC.fmtDate(st.streakEnd * 86400, "med"), null));
     const r0 = median(st.resp[0]), r1 = median(st.resp[1]);

@@ -21,7 +21,13 @@
   function showTab(name) {
     current = name;
     UC.$$(".screen").forEach((s) => s.classList.toggle("active", s.id === "tab-" + name));
-    UC.$$("#tabbar button").forEach((b) => b.classList.toggle("on", b.dataset.tab === name));
+    const FILLED = { chat: ["i-chat", "i-chat-fill"], moments: ["i-heart", "i-heart-fill"] };
+    UC.$$("#tabbar button").forEach((b) => {
+      const on = b.dataset.tab === name;
+      b.classList.toggle("on", on);
+      const f = FILLED[b.dataset.tab];
+      if (f) b.querySelector("use").setAttribute("href", "#" + f[on ? 1 : 0]);
+    });
     if (name === "cal" && !inited.cal) { inited.cal = true; UC.calendar.init(); }
     if (name === "moments") { if (!inited.moments) { inited.moments = true; UC.moments.init(); } else UC.moments.onShow(); }
     if (name === "stats") { if (!inited.stats) { inited.stats = true; UC.stats.init(); } UC.stats.onShow(); }

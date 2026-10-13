@@ -16,9 +16,12 @@
     if (n <= levels[2]) return 3;
     return 4;
   }
+  let _special = null;
   function specialMap() {
+    if (_special) return _special;
     const map = new Map(); // "MM-DD" oder "YYYY-MM-DD" -> eintrag
-    for (const s of D.cfg.specialDays || []) if (s && s.datum) map.set(s.datum, s);
+    for (const s of UC.data.cfg.specialDays || []) if (s && s.datum) map.set(s.datum, s);
+    _special = map;
     return map;
   }
   function specialFor(y, m, d) {
@@ -29,6 +32,7 @@
 
   // ---------- Tagesansicht ----------
   function showDay(day) {
+    D = D || UC.data;
     const ts = day * 86400;
     const idx = D.msgsOfDay(day);
     const content = el("div", { style: { padding: "0 12px" } });
@@ -70,6 +74,7 @@
 
   // ---------- besondere Tage ----------
   function specialSheet(sp) {
+    D = D || UC.data;
     const body = el("div");
     const s = UC.sheet({ title: (sp.emoji || "⭐") + " " + sp.titel, body });
     const [mm, dd] = sp.datum.split("-").map(Number);
