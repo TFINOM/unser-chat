@@ -16,6 +16,9 @@
       this.chats = raw.chats || [];
       this.media = raw.media || [];
       this.N = M.length;
+      // Antworten: Index -> Index der zitierten Nachricht
+      this.Q = new Map();
+      for (const pair of raw.rp || []) this.Q.set(pair[0], pair[1]);
       // Tage
       const days = [], first = [], count = [];
       let prev = -2147483648;

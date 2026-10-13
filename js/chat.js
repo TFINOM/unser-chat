@@ -45,7 +45,43 @@
     return el("div", { class: "call" + (missed ? " missed" : "") }, ci,
       el("span", { class: "ct" }, el("b", { text: title }), sub ? el("span", { text: sub }) : null));
   }
+  // Zitat einer beantworteten Nachricht (nur aus iPhone-Backups bekannt)
+  function quoteEl(i) {
+    const q = D.Q.get(i), qm = D.M[q];
+    if (!qm) return null;
+    const k = qm[D.K], info = UC.media.info(q);
+    let snip;
+    if (k === 0 || k === 12) snip = qm[D.X] || "";
+    else if (k === 10) snip = "🚫 Nachricht gelöscht";
+    else if (k === 9) snip = "📞 " + (qm[D.X] || "Anruf").split(",")[0];
+    else {
+      snip = (D.KIND_ICON[k] || "📎") + " " + (qm[D.X] || D.KIND_LABEL[k] || "Anhang");
+      if (k === 3 && info && info.d) snip += " (" + UC.fmtDur(info.d) + ")";
+    }
+    const box = el("button", { class: "quote " + (qm[D.S] === 0 ? "q-me" : "q-them"), type: "button" },
+      el("span", { class: "qb" }, el("b", { text: qm[D.S] === 0 ? "Du" : (D.cfg.partner || "") }), el("span", { class: "qt", text: snip })));
+    if ((k === 1 || k === 2 || k === 4 || k === 5) && info && (info.th || info.f)) {
+      const im = el("img", { class: "qimg", alt: "" });
+      UC.media.lazy(im, info.th || info.f, root());
+      box.appendChild(im);
+    }
+    const inMini = lazyRoot !== undefined;
+    box.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (inMini) UC.app.openInChat(q, { flash: true });
+      else jumpToIndex(q, { flash: true });
+    });
+    return box;
+  }
   function bubble(i) {
+    const b = bubbleCore(i);
+    if (D.Q.has(i)) {
+      const q = quoteEl(i);
+      if (q) { b.classList.remove("big-emoji"); b.classList.add("has-quote"); b.insertBefore(q, b.firstChild); }
+    }
+    return b;
+  }
+  function bubbleCore(i) {
     const m = D.M[i], k = m[D.K], text = m[D.X] || "";
     const b = el("div", { class: "bubble" });
     b.dataset.i = i;
