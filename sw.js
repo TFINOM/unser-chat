@@ -1,6 +1,6 @@
 /* Unser Chat – Service Worker: macht die App-Hülle offline verfügbar.
    Die Chat-Daten liegen NICHT hier, sondern verschlüsselt importiert in IndexedDB. */
-const VERSION = "unserchat-20261013-195708";
+const VERSION = "unserchat-20261013-203206";
 const FILES = [
   "./", "index.html", "manifest.webmanifest", "css/app.css",
   "js/util.js", "js/store.js", "js/paket.js", "js/data.js", "js/media.js", "js/chat.js", "js/search.js",

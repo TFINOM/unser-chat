@@ -5,7 +5,11 @@
   const CH = 90;          // Nachrichten pro Nachladeschritt
   const MAXR = 650;       // max. gleichzeitig gerenderte Nachrichten
   const EDGE = 1800;      // Pixel-Vorrat oben/unten
-  let D, list, inner, pill, toBottom, scrub, banner;
+  // Platzhalter oberhalb der gerenderten Nachrichten: Beim Nachladen älterer Nachrichten wird er um genau deren
+  // Höhe kleiner, damit die Scrollposition während des Scrollens NICHT korrigiert werden muss (sonst ruckelt iOS).
+  const RESERVE = 120000, REFILL = 40000;
+  let D, list, inner, spacer, pill, toBottom, scrub, banner;
+  let pad = 0;
   let lo = 0, hi = 0, raf = 0, idleT = 0, pillT = 0, scrubT = 0;
   let hlIndex = -1, hlRe = null;
   let lazyRoot;           // undefined = Chatliste
@@ -221,29 +225,49 @@
     inner.appendChild(build(hi, b));
     hi = b;
   }
+  function setPad(v) {
+    pad = Math.max(0, Math.round(v));
+    spacer.style.height = pad + "px";
+  }
+  // Platzhalter ändern und Scrollposition so mitführen, dass sich sichtbar nichts bewegt (nur in Ruhe aufrufen)
+  function resizePad(v) {
+    const s0 = list.scrollTop, old = pad;
+    setPad(v);
+    if (pad !== old) list.scrollTop = s0 + (pad - old);
+  }
   function prepend() {
     if (lo <= 0) return;
     const a = Math.max(0, lo - CH);
-    const h0 = list.scrollHeight, s0 = list.scrollTop;
+    const ref = inner.firstElementChild, y0 = ref ? ref.offsetTop : 0;
     inner.insertBefore(build(a, lo), inner.firstChild);
     lo = a;
-    list.scrollTop = s0 + (list.scrollHeight - h0);
+    const added = ref ? ref.offsetTop - y0 : 0;
+    if (lo === 0) {
+      // Anfang des Verlaufs erreicht: Platzhalter weg (einmalige Korrektur)
+      const s0 = list.scrollTop, old = pad;
+      setPad(0);
+      list.scrollTop = s0 + added - old;
+    } else if (pad >= added) {
+      setPad(pad - added);             // Inhalt bleibt exakt an seiner Stelle – kein Eingriff ins Scrollen
+    } else {
+      const s0 = list.scrollTop, old = pad;
+      setPad(RESERVE);
+      list.scrollTop = s0 + added + RESERVE - old;
+    }
     if (hi - lo > MAXR) trimBottom();
   }
   function trimTop() {
     let n = (hi - lo) - MAXR + CH;
     if (n <= 0) return;
-    const s0 = list.scrollTop, h0 = list.scrollHeight;
-    let removed = 0;
-    while (removed < n) {
-      const r = inner.firstElementChild;
-      if (!r || r.offsetTop + r.offsetHeight > s0 - EDGE) break;
-      r.remove(); removed++; lo++;
-    }
-    if (removed) {
-      // der jetzt erste Eintrag braucht ggf. seinen Datums-Chip (bleibt korrekt, da aus V berechnet)
-      list.scrollTop = s0 - (h0 - list.scrollHeight);
-    }
+    const s0 = list.scrollTop;
+    const gone = [];
+    let r = inner.firstElementChild;
+    while (r && gone.length < n && r.offsetTop + r.offsetHeight <= s0 - EDGE) { gone.push(r); r = r.nextElementSibling; }
+    if (!gone.length || !r) return;
+    const y0 = r.offsetTop;
+    for (const g of gone) g.remove();
+    lo += gone.length;
+    setPad(pad + (y0 - r.offsetTop)); // Platzhalter wächst um die entfernte Höhe – nichts verschiebt sich
   }
   function trimBottom() {
     let n = (hi - lo) - MAXR + CH;
@@ -258,14 +282,18 @@
     raf = 0;
     const st = list.scrollTop, ch = list.clientHeight, sh = list.scrollHeight;
     if (sh - st - ch < EDGE && hi < D.V.length) append();
-    if (st < 500 && lo > 0) prepend();
+    if (lo > 0 && st < pad + EDGE) prepend();
+    if (hi - lo > MAXR + CH) trimTop();   // verschiebt nichts, nur der Platzhalter wächst
     updatePill();
     updateFab();
     updateScrub();
   }
   function onIdle() {
-    if (list.scrollTop < EDGE && lo > 0) prepend();
+    if (lo > 0 && list.scrollTop < pad + EDGE) prepend();
     if (hi - lo > MAXR) trimTop();
+    // Platzhalter in Ruhe wieder auf Normalgröße bringen
+    if (lo > 0 && (pad < REFILL || pad > RESERVE * 2)) resizePad(RESERVE);
+    else if (lo === 0 && pad) resizePad(0);
     clearTimeout(pillT);
     pillT = setTimeout(() => pill.classList.remove("show"), 1100);
     clearTimeout(scrubT);
@@ -313,15 +341,16 @@
   }
   function renderAround(p, align) {
     const n = D.V.length;
-    if (!n) { inner.replaceChildren(el("div", { class: "empty", text: "Keine Nachrichten." })); lo = hi = 0; return; }
+    if (!n) { inner.replaceChildren(el("div", { class: "empty", text: "Keine Nachrichten." })); lo = hi = 0; setPad(0); return; }
     p = Math.max(0, Math.min(n - 1, p));
     lo = Math.max(0, p - 40);
     hi = Math.min(n, p + 80);
     inner.replaceChildren(build(lo, hi));
+    setPad(lo > 0 ? RESERVE : 0);
     // genug Inhalt ober- und unterhalb sicherstellen
     scrollToRow(p, align);
     let guard = 0;
-    while (list.scrollTop < EDGE && lo > 0 && guard++ < 8) prepend();
+    while (list.scrollTop < pad + EDGE && lo > 0 && guard++ < 8) prepend();
     guard = 0;
     while (list.scrollHeight - list.scrollTop - list.clientHeight < EDGE && hi < n && guard++ < 8) append();
     scrollToRow(p, align);
@@ -332,9 +361,10 @@
     lo = Math.max(0, n - 120);
     hi = n;
     inner.replaceChildren(build(lo, hi));
+    setPad(lo > 0 ? RESERVE : 0);
     list.scrollTop = list.scrollHeight;
     let guard = 0;
-    while (list.scrollTop < EDGE && lo > 0 && guard++ < 6) prepend();
+    while (list.scrollTop < pad + EDGE && lo > 0 && guard++ < 6) prepend();
     list.scrollTop = list.scrollHeight;
     updateFab();
   }
@@ -472,6 +502,8 @@
     D = UC.data;
     list = UC.$("#chat-list");
     inner = UC.$("#chat-inner");
+    spacer = el("div", { class: "chat-spacer", "aria-hidden": "true" });
+    list.insertBefore(spacer, inner);
     pill = UC.$("#date-pill");
     toBottom = UC.$("#to-bottom");
     scrub = UC.$("#scrubber");
