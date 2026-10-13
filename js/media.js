@@ -65,38 +65,90 @@
   // ---------------- Sprachnachrichten ----------------
   const player = () => document.getElementById("player");
   let curPath = null, curUi = null;
+  const NBARS = 42;
   function setUi(ui, playing) {
     if (!ui || !ui.isConnected) return;
     const b = ui.querySelector(".pbtn");
     b.replaceChildren(icon(playing ? "i-pause" : "i-play"));
   }
-  media.audioUi = function (i) {
+  function setProgress(ui, f, cur) {
+    if (!ui || !ui.isConnected) return;
+    const bars = ui.querySelectorAll(".bars i");
+    const n = Math.round(f * bars.length);
+    bars.forEach((b, k) => b.classList.toggle("on", k < n));
+    const dot = ui.querySelector(".dot");
+    if (dot) dot.style.left = (f * 100).toFixed(2) + "%";
+    const dur = ui.querySelector(".dur");
+    if (dur) dur.textContent = cur == null ? (ui.dataset.d || "") : UC.fmtDur(cur);
+  }
+  // Wellenform: echte Werte aus den Daten (0–9 je Balken), sonst gleichmäßiges Muster
+  function waveValues(info, seed) {
+    const wv = info && info.wv;
+    const out = [];
+    if (wv && wv.length) {
+      for (let k = 0; k < NBARS; k++) out.push(+wv[Math.floor(k * wv.length / NBARS)] || 0);
+    } else {
+      let x = seed || 7;
+      for (let k = 0; k < NBARS; k++) { x = (x * 9301 + 49297) % 233280; out.push(2 + Math.floor(6 * x / 233280)); }
+    }
+    return out;
+  }
+  function avatarEl(s) {
+    const D = UC.data;
+    const box = el("div", { class: "img" });
+    const path = D.cfg.avatars && D.cfg.avatars[s];
+    if (path) {
+      const img = el("img", { alt: "" });
+      media.url(path).then((u) => { if (u) img.src = u; });
+      box.appendChild(img);
+    } else box.textContent = (D.name(s) || "?").trim().charAt(0).toUpperCase();
+    return box;
+  }
+  media.avatarEl = avatarEl;
+  media.voiceUi = function (i, ticksFn) {
+    const D = UC.data, m = D.M[i];
     const info = media.info(i);
     const dur = info && info.d ? UC.fmtDur(info.d) : "";
-    const ui = el("div", { class: "audio" },
+    const bars = el("div", { class: "bars" });
+    for (const v of waveValues(info, i)) bars.appendChild(el("i", { style: { height: Math.max(3, Math.round(3 + v * 2.5)) + "px" } }));
+    bars.appendChild(el("span", { class: "dot" }));
+    const t = el("span", { class: "t" }, UC.fmtTime(m[D.T]));
+    if (m[D.S] === 0 && ticksFn) t.appendChild(ticksFn());
+    if (D.isFav(i)) t.insertBefore(icon("i-heart-fill", "fav"), t.firstChild);
+    const ui = el("div", { class: "voice" },
+      el("div", { class: "av" }, avatarEl(m[D.S]), icon("i-mic", "mic")),
       el("button", { class: "pbtn", "aria-label": "Abspielen" }, icon("i-play")),
-      el("div", { class: "bar" }, el("i")),
-      el("span", { class: "dur", text: dur }));
+      el("div", { class: "wv" }, bars, el("div", { class: "info" }, el("span", { class: "dur", text: dur }), t)));
     ui.dataset.path = info && info.f ? info.f : "";
     ui.dataset.d = dur;
     ui.querySelector(".pbtn").addEventListener("click", (e) => { e.stopPropagation(); media.toggleAudio(ui); });
+    // Antippen der Wellenform springt an die Stelle
+    bars.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const r = bars.getBoundingClientRect();
+      const f = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      media.toggleAudio(ui, f);
+    });
     if (curPath && ui.dataset.path === curPath) { curUi = ui; setUi(ui, !player().paused); }
     return ui;
   };
-  media.toggleAudio = async function (ui) {
+  media.audioUi = media.voiceUi;
+  media.toggleAudio = async function (ui, seekFrac) {
     const p = player();
     const path = ui.dataset.path;
     if (!path) { UC.toast("Sprachnachricht nicht vorhanden"); return; }
     if (curPath === path) {
       curUi = ui;
+      if (seekFrac != null && p.duration) { p.currentTime = seekFrac * p.duration; if (p.paused) { p.play(); setUi(ui, true); } return; }
       if (p.paused) { p.play(); setUi(ui, true); } else { p.pause(); setUi(ui, false); }
       return;
     }
-    if (curUi) setUi(curUi, false);
+    if (curUi) { setUi(curUi, false); setProgress(curUi, 0, null); }
     curPath = path; curUi = ui;
     const u = await media.url(path);
     if (!u) { UC.toast("Sprachnachricht nicht vorhanden"); return; }
     p.src = u;
+    if (seekFrac != null) p.addEventListener("loadedmetadata", () => { if (p.duration) p.currentTime = seekFrac * p.duration; }, { once: true });
     try { await p.play(); setUi(ui, true); } catch (e) { UC.toast("Konnte nicht abgespielt werden"); }
   };
   document.addEventListener("DOMContentLoaded", () => {
@@ -104,20 +156,15 @@
     p.addEventListener("timeupdate", () => {
       if (!curUi || !curUi.isConnected) {
         // nach Neuaufbau des Chats das passende Element wiederfinden
-        curUi = Array.from(document.querySelectorAll(".audio")).find((x) => x.dataset.path === curPath) || null;
+        curUi = Array.from(document.querySelectorAll(".voice")).find((x) => x.dataset.path === curPath) || null;
         if (!curUi) return;
+        setUi(curUi, !p.paused);
       }
       const f = p.duration ? p.currentTime / p.duration : 0;
-      curUi.querySelector(".bar i").style.width = (f * 100).toFixed(1) + "%";
-      curUi.querySelector(".dur").textContent = UC.fmtDur(p.currentTime);
+      setProgress(curUi, f, p.currentTime);
     });
     p.addEventListener("ended", () => {
-      if (curUi && curUi.isConnected) {
-        setUi(curUi, false);
-        curUi.querySelector(".bar i").style.width = "0%";
-        const info = (curUi.dataset.d);
-        curUi.querySelector(".dur").textContent = info || "";
-      }
+      if (curUi && curUi.isConnected) { setUi(curUi, false); setProgress(curUi, 0, null); }
       curPath = null;
     });
   });

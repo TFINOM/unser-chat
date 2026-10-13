@@ -71,6 +71,18 @@ window.UC = window.UC || {};
     if (d === today - 1) return "Gestern";
     return fmtDate(ts);
   }
+  // Datums-Chip wie in WhatsApp: Heute / Gestern / Wochentag / "Mo. 3. Aug." / "16. Okt. 2025"
+  const MON_WA = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."];
+  const WD_WA = ["So.", "Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa."];
+  function dayChip(ts) {
+    const nowT = nowTs(), today = dayNum(nowT), d = dayNum(ts);
+    if (d === today) return "Heute";
+    if (d === today - 1) return "Gestern";
+    const dt = D(ts);
+    if (d > today - 7 && d < today) return WD[dt.getUTCDay()];
+    if (dt.getUTCFullYear() === D(nowT).getUTCFullYear()) return WD_WA[dt.getUTCDay()] + " " + dt.getUTCDate() + ". " + MON_WA[dt.getUTCMonth()];
+    return dt.getUTCDate() + ". " + MON_WA[dt.getUTCMonth()] + " " + dt.getUTCFullYear();
+  }
   const nf = new Intl.NumberFormat("de-DE");
   const fmtNum = (n) => nf.format(n);
   function fmtDur(sec) {
@@ -264,7 +276,7 @@ window.UC = window.UC || {};
   function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
   Object.assign(UC, {
-    $, $$, el, icon, esc, D, pad, dayNum, nowTs, ymd, tsOf, fmtTime, fmtDate, dayLabel, fmtNum, fmtDur, plural, yearsAgo,
+    $, $$, el, icon, esc, D, pad, dayNum, nowTs, ymd, tsOf, fmtTime, fmtDate, dayLabel, dayChip, fmtNum, fmtDur, plural, yearsAgo,
     WD, WD_S, MON, MON_S, normalize, looseRegex, parseQuery, richText, highlightHtml, emojiOnly, emojis, graphemes,
     prefs, toast, sheet, confirmSheet, gestures, debounce, nextFrame, sleep,
   });

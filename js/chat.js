@@ -12,13 +12,15 @@
   const root = () => (lazyRoot === undefined ? list : lazyRoot);
 
   // ---------- Nachrichten bauen ----------
+  const ticks = () => icon("i-ticks", "ticks");
   function metaEl(i) {
     const m = D.M[i];
     const meta = el("span", { class: "meta" });
     if (D.chatTag[m[D.C]] && D.chats.length > 1) meta.appendChild(el("span", { class: "chat-tag", text: D.chats[m[D.C]].name }));
-    if (m[D.F] & 1) meta.appendChild(el("span", { class: "edited", text: "bearbeitet" }));
+    if (m[D.F] & 1) meta.appendChild(el("span", { class: "edited", text: "Bearbeitet" }));
     if (D.isFav(i)) meta.appendChild(icon("i-heart-fill", "fav"));
     meta.appendChild(document.createTextNode(UC.fmtTime(m[D.T])));
+    if (m[D.S] === 0) meta.appendChild(ticks());
     return meta;
   }
   function placeholder(i) {
@@ -31,6 +33,18 @@
     node.innerHTML = UC.richText(text, i === hlIndex ? hlRe : null);
     return node;
   }
+  function callEl(i) {
+    const m = D.M[i], text = m[D.X] || "";
+    const parts = text.split(/\s*,\s*/);
+    const title = parts[0] || "Anruf";
+    const sub = parts.slice(1).join(" · ") || "";
+    const missed = /verpasst|missed|abgelehnt|declined/i.test(title);
+    const video = /video/i.test(title);
+    const ci = el("span", { class: "ci" }, icon(video ? "i-video" : "i-phone"));
+    if (!video) ci.appendChild(icon(m[D.S] === 0 ? "i-arrow-out" : "i-arrow-in", "arr"));
+    return el("div", { class: "call" + (missed ? " missed" : "") }, ci,
+      el("span", { class: "ct" }, el("b", { text: title }), sub ? el("span", { text: sub }) : null));
+  }
   function bubble(i) {
     const m = D.M[i], k = m[D.K], text = m[D.X] || "";
     const b = el("div", { class: "bubble" });
@@ -40,15 +54,15 @@
     if ((k === 1 || k === 2 || k === 5) && info && (info.th || info.f)) {
       b.classList.add("media");
       const w0 = info.w || 4, h0 = info.h || 3;
-      const W = Math.round(Math.min(270, (window.innerWidth || 375) * 0.66));
-      const H = Math.round(Math.max(120, Math.min(W * h0 / w0, 340)));
+      const W = Math.round(Math.min(290, (window.innerWidth || 375) * 0.7));
+      const H = Math.round(Math.max(130, Math.min(W * h0 / w0, 380)));
       const box = el("button", { class: "mbox", style: { width: W + "px", height: H + "px" }, "aria-label": D.KIND_LABEL[k] });
       const img = el("img", { alt: "", decoding: "async" });
       UC.media.lazy(img, info.th || info.f, root());
       box.appendChild(img);
       if (k !== 1) {
         box.appendChild(el("div", { class: "play" }, el("span", null, icon("i-play"))));
-        box.appendChild(el("div", { class: "badge", text: k === 5 ? "GIF" : (info.d ? UC.fmtDur(info.d) : "Video") }));
+        box.appendChild(el("div", { class: "badge" }, k === 5 ? "GIF" : icon("i-video"), k === 5 ? null : (info.d ? UC.fmtDur(info.d) : "")));
       }
       box.addEventListener("click", (e) => { e.stopPropagation(); UC.media.view(i); });
       b.appendChild(box);
@@ -63,7 +77,7 @@
         break;
       }
       case 3:
-        if (info && info.f) b.append(UC.media.audioUi(i), meta);
+        if (info && info.f) { b.classList.add("voice-b"); b.append(UC.media.voiceUi(i, ticks), meta); }
         else b.append(placeholder(i), meta);
         break;
       case 4:
@@ -77,15 +91,13 @@
       case 10:
         b.append(el("span", { class: "note", text: "🚫 " + (m[D.S] === 0 ? "Du hast diese Nachricht gelöscht." : "Diese Nachricht wurde gelöscht.") }), meta);
         break;
-      case 9: {
-        const t = text.replace(/,?\s*(Zum Zurückrufen tippen|Tap to call back)\.?/i, "").replace(/\s*,\s*/g, " · ");
-        b.append(el("span", { class: "placeholder" }, el("span", { class: "ico", text: "📞" }), el("span", { text: t || "Anruf" })), meta);
+      case 9:
+        b.append(callEl(i), meta);
         break;
-      }
       case 8: {
         const url = (text.match(/https?:\/\/\S+/) || [])[0];
         const a = url ? el("a", { href: url, target: "_blank", rel: "noopener", text: "Auf Karte öffnen" }) : null;
-        b.append(el("div", { class: "placeholder" }, el("span", { class: "ico", text: "📍" }),
+        b.append(el("div", { class: "placeholder" }, el("span", { class: "ico" }, icon("i-pin")),
           el("span", null, text.toLowerCase().indexOf("live") >= 0 ? "Live-Standort" : "Standort", a ? el("br") : null, a)), meta);
         break;
       }
@@ -93,7 +105,7 @@
         b.append(el("div", { class: "placeholder" }, el("span", { class: "ico", text: "👤" }), el("span", { text: text || "Kontakt" })), meta);
         break;
       case 6:
-        b.append(el("div", { class: "placeholder" }, el("span", { class: "ico", text: "📄" }), el("span", { text: text || "Dokument" })), meta);
+        b.append(el("div", { class: "placeholder" }, el("span", { class: "ico" }, icon("i-doc")), el("span", { text: text || "Dokument" })), meta);
         break;
       case 12:
         b.append(setText(el("span", { class: "txt" }), "📊 " + text.replace(/^UMFRAGE:\s*/i, ""), i), meta);
@@ -117,19 +129,31 @@
     if (/verschlüsselt|encrypted/i.test(m[D.X] || "")) c.textContent = "🔒 " + c.textContent;
     return c;
   }
+  const isSys = (m) => m[D.S] === 2 || m[D.K] === 11;
+  // gehören zwei aufeinanderfolgende Nachrichten zur selben Gruppe?
+  function sameGroup(a, b) {
+    if (!a || !b || isSys(a) || isSys(b)) return false;
+    if (a[D.S] !== b[D.S]) return false;
+    if (Math.floor(a[D.T] / 86400) !== Math.floor(b[D.T] / 86400)) return false;
+    return b[D.T] - a[D.T] <= 3600;
+  }
+  function rowClass(m, pm, nm) {
+    const sys = isSys(m);
+    let c = "row " + (sys ? "sys" : m[D.S] === 0 ? "me" : "them");
+    if (!sys && !sameGroup(pm, m)) c += " grp-start";
+    if (!sys && !sameGroup(m, nm)) c += " grp-end";
+    return c;
+  }
   function rowFor(p) {
     const V = D.V, M = D.M;
     const i = V[p], m = M[i];
     const pm = p > 0 ? M[V[p - 1]] : null;
-    const day = Math.floor(m[D.T] / 86400);
-    const newDay = !pm || Math.floor(pm[D.T] / 86400) !== day;
-    const s = m[D.S];
-    const sys = s === 2 || m[D.K] === 11;
-    const grp = !sys && (newDay || !pm || pm[D.S] !== s || pm[D.K] === 11 || m[D.T] - pm[D.T] > 3600);
-    const row = el("div", { class: "row " + (sys ? "sys" : s === 0 ? "me" : "them") + (grp ? " grp-start" : "") });
+    const nm = p < V.length - 1 ? M[V[p + 1]] : null;
+    const newDay = !pm || Math.floor(pm[D.T] / 86400) !== Math.floor(m[D.T] / 86400);
+    const row = el("div", { class: rowClass(m, pm, nm) });
     row.dataset.p = p;
-    if (newDay) row.appendChild(el("div", { class: "day", text: UC.dayLabel(m[D.T]) }));
-    row.appendChild(sys ? sysChip(i) : bubble(i));
+    if (newDay) row.appendChild(el("div", { class: "day", text: UC.dayChip(m[D.T]) }));
+    row.appendChild(isSys(m) ? sysChip(i) : bubble(i));
     return row;
   }
   // kleine Chat-Vorschau (Erinnerungen, Tagesansicht)
@@ -137,15 +161,13 @@
     const prev = lazyRoot;
     lazyRoot = scrollRoot || null;
     const f = document.createDocumentFragment();
-    let pm = null;
-    for (const i of indices) {
-      const m = D.M[i], s = m[D.S];
-      const sys = s === 2 || m[D.K] === 11;
-      const grp = !sys && (!pm || pm[D.S] !== s || m[D.T] - pm[D.T] > 3600);
-      const row = el("div", { class: "row " + (sys ? "sys" : s === 0 ? "me" : "them") + (grp ? " grp-start" : "") });
-      row.appendChild(sys ? sysChip(i) : bubble(i));
+    for (let j = 0; j < indices.length; j++) {
+      const i = indices[j], m = D.M[i];
+      const pm = j > 0 ? D.M[indices[j - 1]] : null;
+      const nm = j < indices.length - 1 ? D.M[indices[j + 1]] : null;
+      const row = el("div", { class: rowClass(m, pm, nm) });
+      row.appendChild(isSys(m) ? sysChip(i) : bubble(i));
       f.appendChild(row);
-      pm = m;
     }
     lazyRoot = prev;
     return f;
@@ -235,7 +257,7 @@
   function updatePill() {
     const ts = currentTs();
     if (ts == null) return;
-    pill.textContent = UC.dayLabel(ts);
+    pill.textContent = UC.dayChip(ts);
     pill.classList.add("show");
     scrub.classList.add("show");
   }
@@ -349,7 +371,12 @@
   function updateHeader() {
     const cfg = D.cfg;
     const av = UC.$("#chat-avatar");
-    av.textContent = (cfg.partner || "?").trim().charAt(0).toUpperCase();
+    const avPath = cfg.avatars && cfg.avatars[1];
+    if (avPath) {
+      const img = el("img", { alt: "" });
+      UC.media.url(avPath).then((u) => { if (u) img.src = u; });
+      av.replaceChildren(img);
+    } else av.textContent = (cfg.partner || "?").trim().charAt(0).toUpperCase();
     UC.$("#chat-name").textContent = cfg.partner || "Unser Chat";
     const since = cfg.since ? UC.tsOf.apply(null, cfg.since.split("-").map(Number)) : D.firstTs;
     UC.$("#chat-sub").textContent = "seit " + UC.fmtDate(since, "med") + " · " + UC.fmtNum(D.V.length) + " Nachrichten";
