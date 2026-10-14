@@ -20,6 +20,11 @@
     };
     const loveToks = D.loveTokens();
     st.loveP = loveToks.map(() => [0, 0]);
+    // Kosenamen (wie die Suche ohne Anführungszeichen: Wortanfang, „Lolo“ zählt auch „Lolos“)
+    const nick = D.cfg.nicknames || {};
+    st.nickList = (nick.me || []).map((n) => ({ n, whose: 0 })).concat((nick.partner || []).map((n) => ({ n, whose: 1 })));
+    const nickToks = st.nickList.map((x) => ({ t: UC.normalize(x.n), exact: false }));
+    st.nickC = nickToks.map(() => [0, 0]);
     let lastDay = null, run = 0, prev = null;
     let tStart = -1, tFirst = 0, tLast = 0, tN = 0, sStart = -1, sN = 0, sWho = -1;
     const closeTalk = () => { if (tStart >= 0 && tLast - tFirst > st.talk.sec) st.talk = { i: tStart, sec: tLast - tFirst, n: tN }; };
@@ -71,6 +76,10 @@
       }
       const x = m[D.X] || "";
       if (!x || k === 9) continue;
+      if (nickToks.length) {
+        const nt = D.norm ? D.norm[i] : UC.normalize(x);
+        for (let j = 0; j < nickToks.length; j++) if (UC.matchToken(nt, nickToks[j])) st.nickC[j][s]++;
+      }
       // Wörter: pro Nachricht einmal gezählt, wie die Suche (Umlaute egal) – angezeigt wird die häufigste Schreibweise
       const seen = new Set();
       const ws = x.replace(/https?:\/\/\S+|www\.\S+/gi, " ").toLowerCase().match(wordRe);
@@ -136,6 +145,24 @@
     return el("div", { class: "who" },
       el("div", null, el("div", { class: "n" }, el("i", { style: { background: "var(--her)" } }), D.name(0)), el("div", { class: "v", text: fmt(a) })),
       el("div", null, el("div", { class: "n" }, el("i", { style: { background: "var(--him)" } }), D.name(1)), el("div", { class: "v", text: fmt(b) })));
+  }
+
+  // Kosenamen: wer schreibt wie oft „Lolo“ / „Lele“?
+  function nickRows(st) {
+    if (!st.nickList.length) return null;
+    const box = el("div");
+    box.appendChild(el("div", { class: "sub", style: { marginTop: "12px" }, text: "Eure Kosenamen" }));
+    st.nickList.forEach((x, j) => {
+      const [a, b] = st.nickC[j];
+      if (!a && !b) return;
+      // zuerst die Person, die den Kosenamen benutzt (Lolo schreibt meist er, Lele meist sie)
+      const first = x.whose === 0 ? 1 : 0, second = 1 - first;
+      const cnt = [a, b];
+      box.appendChild(rec("💕", "„" + x.n + "“",
+        D.name(first) + ": " + UC.fmtNum(cnt[first]) + " · " + D.name(second) + ": " + UC.fmtNum(cnt[second]) + " · zusammen " + UC.fmtNum(a + b),
+        () => UC.app.searchFor(x.n, year ? { year } : {})));
+    });
+    return box.childNodes.length > 1 ? box : null;
   }
 
   function render(st) {
@@ -208,7 +235,7 @@
 
     // Liebe in Zahlen
     const phrases = (D.cfg.lovePhrases || []);
-    if (phrases.length) {
+    if (phrases.length || st.nickList.length) {
       const rows = el("div", { class: "love-rows" });
       phrases.forEach((p, j) => {
         const [a, b] = st.loveP[j];
@@ -221,6 +248,7 @@
         rows,
         el("div", { class: "sub", style: { marginTop: "12px" }, text: "Mindestens eins davon" }),
         whoGrid(st.love[0], st.love[1], UC.fmtNum),
+        nickRows(st),
         el("div", { class: "sub", style: { marginTop: "12px" }, text: "„Guten Morgen“ & „Gute Nacht“" }),
         whoGrid(st.morning[0] + st.night[0], st.morning[1] + st.night[1], UC.fmtNum)));
     }

@@ -78,6 +78,16 @@
         }
       }
     }
+    // Kosenamen: das erste Mal
+    const nick = D.cfg.nicknames || {};
+    for (const n of (nick.me || []).concat(nick.partner || [])) {
+      const tok = { t: UC.normalize(n), exact: false };
+      for (let i = 0; i < D.N; i++) {
+        const m = M[i];
+        if (m[D.S] === 2 || !m[D.X] || m[D.K] === 9) continue;
+        if (UC.matchToken(D.norm ? D.norm[i] : UC.normalize(m[D.X]), tok)) { add("💕", "Das erste „" + n + "“", i, D.name(m[D.S])); break; }
+      }
+    }
     const firstOf = (k) => { for (let i = 0; i < D.N; i++) if (M[i][D.K] === k) return i; return -1; };
     add("📷", "Das erste Foto", firstOf(1));
     add("🎤", "Die erste Sprachnachricht", firstOf(3));
