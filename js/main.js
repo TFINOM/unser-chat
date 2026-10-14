@@ -40,9 +40,22 @@
     requestAnimationFrame(() => UC.chat.jumpToIndex(i, opts || { flash: true }));
   };
   app.showDay = (day) => { if (!inited.cal) { inited.cal = true; UC.calendar.init(); } UC.calendar.showDay(day); };
-  app.searchFor = (q) => { showTab("search"); UC.search.searchFor(q); };
+  app.searchFor = (q, opts) => { showTab("search"); UC.search.searchFor(q, opts); };
 
   // ---------- Einstellungen ----------
+  // Profilbild groß anzeigen (wie in WhatsApp)
+  app.showAvatar = function () {
+    const D = UC.data, path = D.cfg.avatars && D.cfg.avatars[1];
+    if (!path) return;
+    const img = UC.el("img", { alt: D.cfg.partner || "" });
+    const ov = UC.el("div", { class: "avatar-view", role: "dialog", "aria-label": "Profilbild" },
+      UC.el("div", { class: "av-name", text: D.cfg.partner || "" }), img);
+    UC.media.url(path).then((u) => { if (u) img.src = u; });
+    const close = () => { ov.classList.remove("show"); setTimeout(() => ov.remove(), 250); };
+    ov.addEventListener("click", close);
+    document.getElementById("overlays").appendChild(ov);
+    requestAnimationFrame(() => ov.classList.add("show"));
+  };
   app.openSettings = function () {
     const D = UC.data;
     const body = el("div");
@@ -268,7 +281,7 @@
           showTab(b.dataset.tab);
         });
         UC.$("#chat-menu-btn").onclick = app.openSettings;
-        UC.$("#chat-avatar").onclick = app.openSettings;
+        UC.$("#chat-avatar").onclick = app.showAvatar;
         UC.$("#chat-title-btn").onclick = () => showTab("stats");
         UC.$("#chat-cal-btn").onclick = () => showTab("cal");
       } else {

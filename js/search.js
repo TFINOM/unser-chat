@@ -118,14 +118,17 @@
     const rec = UC.prefs.get("recent", []);
     const tips = el("div", { class: "empty", style: { textAlign: "left" } },
       el("p", { html: "<b>So funktioniert die Suche</b>" }),
-      el("p", { text: "• Mehrere Wörter finden Nachrichten, die alle Wörter enthalten." }),
-      el("p", { text: "• „In Anführungszeichen“ sucht genau diesen Satz." }),
+      el("p", { text: "• Mehrere Wörter finden Nachrichten, die alle Wörter enthalten – egal in welcher Reihenfolge." }),
+      el("p", { text: "• „In Anführungszeichen“ sucht genau diesen Satz bzw. genau dieses Wort." }),
+      el("p", { text: "• Gesucht wird am Wortanfang: „lieb“ findet „liebe“ und „lieber“, „ich“ aber nicht „dich“." }),
       el("p", { text: "• Groß-/Kleinschreibung und Umlaute sind egal: „schon“ findet auch „schön“." }),
       el("p", { text: "• Über „Art“ findest du alle Fotos, Sprachnachrichten oder Links – auch ohne Suchwort." }));
     out.replaceChildren();
     if (rec.length) {
-      out.appendChild(el("div", { class: "section-title", text: "Zuletzt gesucht" }));
-      const c = el("div", { class: "special" });
+      const clr = el("button", { class: "link-btn", text: "Löschen" });
+      clr.onclick = () => { UC.prefs.set("recent", []); emptyState(); };
+      out.appendChild(el("div", { class: "section-title row-title" }, el("span", { text: "Zuletzt gesucht" }), clr));
+      const c = el("div", { class: "hscroll" });
       for (const q of rec) c.appendChild(el("button", { class: "chip", text: q, onclick: () => { input.value = q; run(); } }));
       out.appendChild(c);
     }
@@ -152,7 +155,7 @@
         const t = norm[i];
         if (!t) continue;
         let ok = true;
-        for (let j = 0; j < tokens.length; j++) if (t.indexOf(tokens[j]) < 0) { ok = false; break; }
+        for (let j = 0; j < tokens.length; j++) if (!UC.matchToken(t, tokens[j])) { ok = false; break; }
         if (!ok) continue;
       } else if (state.type === "all" && m[D.K] === 11) continue;
       res.push(i);
@@ -168,7 +171,7 @@
     if (q.length < 2) return;
     const rec = UC.prefs.get("recent", []).filter((x) => x !== q);
     rec.unshift(q);
-    UC.prefs.set("recent", rec.slice(0, 8));
+    UC.prefs.set("recent", rec.slice(0, 20));
   }
 
   function init() {
@@ -187,7 +190,13 @@
     out.addEventListener("touchstart", () => input.blur(), { passive: true });
   }
   function focus() { setTimeout(() => { if (!input.value) input.focus(); }, 60); D.ensureNorm(); }
-  function searchFor(q) { input.value = q; run(); }
+  // von außen (z. B. Rückblick): Filter zurücksetzen, optional Person/Art vorgeben
+  function searchFor(q, opts) {
+    state = Object.assign({ sender: -1, type: "all", year: 0, newest: state.newest }, opts || {});
+    renderFilters();
+    input.value = q;
+    run();
+  }
 
   UC.search = { init, focus, searchFor };
 })(window.UC);

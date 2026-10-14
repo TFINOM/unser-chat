@@ -96,9 +96,25 @@ window.UC = window.UC || {};
   function normalize(s) {
     return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ß/g, "ss");
   }
+  // Suchbegriff im (normalisierten) Text finden.
+  // Normal: nur am Wortanfang („ich“ findet „ich“, aber nicht „dich“). exact (in Anführungszeichen): ganze Wörter.
+  const WORDCH = /[\p{L}\p{N}]/u;
+  function matchToken(text, tok) {
+    const t = tok.t;
+    if (!t) return true;
+    const needStart = WORDCH.test(t[0]), needEnd = tok.exact && WORDCH.test(t[t.length - 1]);
+    let i = text.indexOf(t);
+    while (i >= 0) {
+      const e = i + t.length;
+      if ((!needStart || i === 0 || !WORDCH.test(text[i - 1])) && (!needEnd || e >= text.length || !WORDCH.test(text[e]))) return true;
+      i = text.indexOf(t, i + 1);
+    }
+    return false;
+  }
   const LOOSE = { a: "aàáâäãåæ", e: "eèéêë", i: "iìíîï", o: "oòóôöõøœ", u: "uùúûü", c: "cç", n: "nñ", y: "yýÿ" };
   function looseRegex(tokens) {
-    const parts = tokens.filter(Boolean).map((t) => {
+    const parts = tokens.filter((x) => x && x.t).map((tok) => {
+      const t = tok.t;
       let out = "";
       for (let i = 0; i < t.length; i++) {
         const ch = t[i];
@@ -106,18 +122,23 @@ window.UC = window.UC || {};
         const set = LOOSE[ch];
         out += set ? "[" + set + set.toUpperCase() + "]" : ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       }
-      return out;
+      return (WORDCH.test(t[0]) ? "(?<![\\p{L}\\p{N}])" : "") + out +
+        (tok.exact && WORDCH.test(t[t.length - 1]) ? "(?![\\p{L}\\p{N}])" : "");
     });
     if (!parts.length) return null;
     parts.sort((a, b) => b.length - a.length);
-    try { return new RegExp("(" + parts.join("|") + ")", "gi"); } catch (e) { return null; }
+    try { return new RegExp("(" + parts.join("|") + ")", "giu"); } catch (e) { return null; }
   }
+  // Suchanfrage -> [{t: normalisierter Begriff, exact: in Anführungszeichen?}]
   function parseQuery(q) {
     const tokens = [];
     const re = /"([^"]+)"|„([^“”"]+)[“”"]|(\S+)/g;
     let m;
-    while ((m = re.exec(q))) tokens.push(normalize((m[1] || m[2] || m[3]).trim()));
-    return tokens.filter((t) => t.length > 0);
+    while ((m = re.exec(q))) {
+      const t = normalize((m[1] || m[2] || m[3]).trim());
+      if (t) tokens.push({ t, exact: !m[3] });
+    }
+    return tokens;
   }
   const URL_RE = /\b(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g;
   function richText(text, hl) {
@@ -278,6 +299,6 @@ window.UC = window.UC || {};
   Object.assign(UC, {
     $, $$, el, icon, esc, D, pad, dayNum, nowTs, ymd, tsOf, fmtTime, fmtDate, dayLabel, dayChip, fmtNum, fmtDur, plural, yearsAgo,
     WD, WD_S, MON, MON_S, normalize, looseRegex, parseQuery, richText, highlightHtml, emojiOnly, emojis, graphemes,
-    prefs, toast, sheet, confirmSheet, gestures, debounce, nextFrame, sleep,
+    prefs, toast, sheet, confirmSheet, gestures, debounce, nextFrame, sleep, matchToken,
   });
 })(window.UC);

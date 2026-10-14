@@ -137,6 +137,16 @@
       this._favIdx = out;
       return out;
     },
+    // ---- Liebes-Sätze (gleiche Regeln wie die Suche mit Anführungszeichen) ----
+    loveTokens() { return (this.cfg.lovePhrases || []).map((p) => ({ t: UC.normalize(p), exact: true })); },
+    loveHits(i, toks) {
+      const m = this.M[i], k = m[K];
+      if (!m[X] || m[S] === 2 || k === KIND.CALL || k === KIND.SYS) return null;
+      const t = this.norm ? this.norm[i] : UC.normalize(m[X]);
+      let out = null;
+      for (let j = 0; j < toks.length; j++) if (UC.matchToken(t, toks[j])) (out || (out = [])).push(j);
+      return out;
+    },
     // Text für Vorschau / Suche
     preview(i) {
       const m = this.M[i];

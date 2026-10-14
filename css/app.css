@@ -617,3 +617,24 @@ a { color: var(--link); }
 .bubble.media.has-quote .quote { margin-bottom: 4px; }
 .bubble.sticker-b.has-quote { background: var(--in) !important; padding: 4px; border-radius: 18px; }
 .row.me .bubble.sticker-b.has-quote { background: var(--out) !important; }
+
+/* Kein blaues Markieren beim langen Drücken (Text kopieren geht über das Menü) */
+#app, #overlays { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#app input, #app textarea, #overlays input, #overlays textarea { -webkit-user-select: text; user-select: text; }
+.bubble.picked { filter: brightness(0.93); transform: scale(1.02); transition: transform .15s ease, filter .15s ease; }
+
+/* Zuletzt gesucht: eine Zeile, seitlich scrollen */
+.section-title.row-title { display: flex; align-items: baseline; justify-content: space-between; }
+.link-btn { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--accent); font-weight: 500; }
+.hscroll { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; padding: 6px 16px 10px; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-padding: 0 16px; }
+.hscroll::-webkit-scrollbar { display: none; }
+.hscroll .chip { flex: none; background: var(--bg-2); border: 0.5px solid var(--line); color: var(--text); white-space: nowrap; }
+
+/* Profilbild groß */
+.avatar-view { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, 0.88); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; opacity: 0; transition: opacity .22s ease; padding: 24px; }
+.avatar-view.show { opacity: 1; }
+.avatar-view img { width: min(88vw, 480px); aspect-ratio: 1; object-fit: cover; border-radius: 12px; transform: scale(.92); transition: transform .22s ease; }
+.avatar-view.show img { transform: none; }
+.avatar-view .av-name { color: #fff; font-size: 20px; font-weight: 600; }
+.chat-title .sub[hidden] { display: none; }

@@ -66,15 +66,15 @@
     let f0 = 0;
     while (f0 < D.N - 1 && M[f0][D.S] === 2) f0++;
     add("✨", "Eure erste Nachricht", f0, D.name(M[f0][D.S]));
-    const phrases = (D.cfg.lovePhrases || []).map((p) => p.toLowerCase());
+    const phrases = (D.cfg.lovePhrases || []).map((p) => ({ p, tok: { t: UC.normalize(p), exact: true } }));
     if (phrases.length) {
       for (const s of [0, 1]) {
         for (let i = 0; i < D.N; i++) {
           const m = M[i];
           if (m[D.S] !== s || m[D.K] !== 0) continue;
-          const t = (m[D.X] || "").toLowerCase();
-          const ph = phrases.find((p) => t.indexOf(p) >= 0);
-          if (ph) { add("❤️", "Das erste „" + ph.charAt(0).toUpperCase() + ph.slice(1) + "“ von " + D.name(s), i); break; }
+          const t = UC.normalize(m[D.X] || "");
+          const ph = phrases.find((x) => UC.matchToken(t, x.tok));
+          if (ph) { add("❤️", "Das erste „" + ph.p.charAt(0).toUpperCase() + ph.p.slice(1) + "“ von " + D.name(s), i); break; }
         }
       }
     }
@@ -132,7 +132,7 @@
   function renderPhotos() {
     body.replaceChildren();
     const list = UC.media.visualList().slice().reverse();
-    if (!list.length) { body.appendChild(el("div", { class: "empty", text: "Keine Fotos in den Daten enthalten." })); return; }
+    if (!list.length) { body.appendChild(el("div", { class: "empty", text: "Keine Fotos oder Videos in den Daten enthalten." })); return; }
     let shown = 0, curYear = null, grid = null;
     const more = () => {
       const end = Math.min(list.length, shown + 240);

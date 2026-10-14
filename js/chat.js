@@ -444,8 +444,7 @@
       av.replaceChildren(img);
     } else av.textContent = (cfg.partner || "?").trim().charAt(0).toUpperCase();
     UC.$("#chat-name").textContent = cfg.partner || "Unser Chat";
-    const since = cfg.since ? UC.tsOf.apply(null, cfg.since.split("-").map(Number)) : D.firstTs;
-    UC.$("#chat-sub").textContent = "seit " + UC.fmtDate(since, "med") + " · " + UC.fmtNum(D.V.length) + " Nachrichten";
+    UC.$("#chat-sub").hidden = true;
   }
   function updateBanner() {
     if (D.filtered) {
@@ -492,7 +491,9 @@
     const cp = el("button", { class: "opt", text: "📋  Text kopieren" });
     const day = el("button", { class: "opt", text: "📅  Diesen Tag im Kalender" });
     body.append(info, fav, m[D.X] ? cp : null, day);
-    const s = UC.sheet({ title: "Nachricht", body });
+    const bub = inner.querySelector('[data-i="' + i + '"]');
+    if (bub) bub.classList.add("picked");
+    const s = UC.sheet({ title: "Nachricht", body, onClose: () => { if (bub) bub.classList.remove("picked"); } });
     fav.onclick = () => { toggleFav(i); s.close(); };
     cp.onclick = () => { copyText(m[D.X] || ""); UC.toast("Kopiert"); s.close(); };
     day.onclick = () => { s.close(); UC.app.showDay(Math.floor(m[D.T] / 86400)); };

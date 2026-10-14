@@ -15,10 +15,15 @@
       perHour: new Array(24).fill(0), perWd: new Array(7).fill(0), emo: [new Map(), new Map()], words: new Map(),
       love: [0, 0], morning: [0, 0], night: [0, 0], days: 0, streak: 0, streakEnd: 0, busiest: -1, busiestN: 0,
       longest: -1, longestLen: 0, resp: [[], []], starter: [0, 0], voiceSec: 0,
+      spell: new Map(), loveP: [], perYm: new Map(), photoDay: new Map(),
+      call: { i: -1, sec: 0 }, voice: { i: -1, sec: 0 }, talk: { i: -1, sec: 0, n: 0 }, salvo: { i: -1, n: 0 },
     };
-    const phrases = (D.cfg.lovePhrases || []).map((p) => p.toLowerCase());
+    const loveToks = D.loveTokens();
+    st.loveP = loveToks.map(() => [0, 0]);
     let lastDay = null, run = 0, prev = null;
-    const wordRe = /[\p{L}][\p{L}\p{M}'’-]*/gu;
+    let tStart = -1, tFirst = 0, tLast = 0, tN = 0, sStart = -1, sN = 0, sWho = -1;
+    const closeTalk = () => { if (tStart >= 0 && tLast - tFirst > st.talk.sec) st.talk = { i: tStart, sec: tLast - tFirst, n: tN }; };
+    const wordRe = /[\p{L}\p{M}\p{N}]+/gu;
     for (let i = a; i < b; i++) {
       const m = M[i], s = m[D.S], k = m[D.K], t = m[D.T];
       const day = Math.floor(t / 86400);
@@ -32,32 +37,61 @@
         if (info && info.count > st.busiestN) { st.busiestN = info.count; st.busiest = day; }
       }
       if (s === 2 || k === 11) { prev = null; continue; }
+      // Gespräch am Stück (Pausen höchstens 30 Min.) und längste Nachrichten-Salve einer Person
+      if (tStart < 0 || t - tLast > 1800) { closeTalk(); tStart = i; tFirst = t; tN = 0; }
+      tLast = t; tN++;
+      if (s !== sWho) { sWho = s; sStart = i; sN = 0; }
+      if (++sN > st.salvo.n) st.salvo = { i: sStart, n: sN };
       st.by[s]++;
       st.kinds[k] = (st.kinds[k] || 0) + 1;
       const d = UC.D(t);
       const yy = d.getUTCFullYear();
       st.perYear.set(yy, (st.perYear.get(yy) || 0) + 1);
       st.perMonth[d.getUTCMonth()]++;
+      const ym = yy * 12 + d.getUTCMonth();
+      st.perYm.set(ym, (st.perYm.get(ym) || 0) + 1);
+      if (k === 1) st.photoDay.set(day, (st.photoDay.get(day) || 0) + 1);
+      if (k === 9) {
+        const x = m[D.X] || "", h = /(\d+)\s*Std/i.exec(x), mi = /(\d+)\s*Min/i.exec(x), se = /(\d+)\s*Sek/i.exec(x);
+        const sec = (h ? +h[1] * 3600 : 0) + (mi ? +mi[1] * 60 : 0) + (se ? +se[1] : 0);
+        if (sec > st.call.sec) st.call = { i, sec };
+      }
       st.perHour[d.getUTCHours()]++;
       st.perWd[(d.getUTCDay() + 6) % 7]++;
       if (prev && prev[D.S] !== s && t - prev[D.T] < 6 * 3600) st.resp[s].push(t - prev[D.T]);
       prev = m;
-      if (k === 3) { const inf = UC.media.info(i); if (inf && inf.d) st.voiceSec += inf.d; }
-      if (k !== 0) continue;
+      if (k === 3) {
+        const inf = UC.media.info(i);
+        if (inf && inf.d) { st.voiceSec += inf.d; if (inf.d > st.voice.sec) st.voice = { i, sec: inf.d }; }
+      }
+      // Liebes-Sätze: dieselben Regeln wie die Suche „in Anführungszeichen“ (auch Bildunterschriften)
+      if (loveToks.length) {
+        const hits = D.loveHits(i, loveToks);
+        if (hits) { st.love[s]++; for (const j of hits) st.loveP[j][s]++; }
+      }
       const x = m[D.X] || "";
+      if (!x || k === 9) continue;
+      // Wörter: pro Nachricht einmal gezählt, wie die Suche (Umlaute egal) – angezeigt wird die häufigste Schreibweise
+      const seen = new Set();
+      const ws = x.replace(/https?:\/\/\S+|www\.\S+/gi, " ").toLowerCase().match(wordRe);
+      if (ws) for (const w of ws) {
+        if (w.length < 3 || !/^\p{L}/u.test(w) || STOP.has(w) || w.indexOf("http") === 0) continue;
+        const key = UC.normalize(w);
+        if (STOP.has(key) || seen.has(key)) continue;
+        seen.add(key);
+        st.words.set(key, (st.words.get(key) || 0) + 1);
+        let sp = st.spell.get(key);
+        if (!sp) st.spell.set(key, (sp = new Map()));
+        sp.set(w, (sp.get(w) || 0) + 1);
+      }
+      if (k !== 0) continue;
       if (x.length > st.longestLen) { st.longestLen = x.length; st.longest = i; }
       const low = x.toLowerCase();
-      for (const p of phrases) if (low.indexOf(p) >= 0) { st.love[s]++; break; }
       if (/guten morgen|^morgen\b|^moin/.test(low)) st.morning[s]++;
       if (/gute nacht|schlaf gut|^nacht\b/.test(low)) st.night[s]++;
       for (const e of UC.emojis(x)) st.emo[s].set(e, (st.emo[s].get(e) || 0) + 1);
-      const ws = low.match(wordRe);
-      if (ws) for (const w0 of ws) {
-        const w = w0.replace(/['’-]+$/, "");
-        if (w.length < 3 || STOP.has(w) || w.indexOf("http") === 0) continue;
-        st.words.set(w, (st.words.get(w) || 0) + 1);
-      }
     }
+    closeTalk();
     return st;
   }
 
@@ -69,10 +103,9 @@
     return (sec / 3600).toFixed(1).replace(".", ",") + " Std.";
   }
 
-  // Säulendiagramm: eine Reihe, Wert beim Antippen, größter Wert beschriftet
+  // Säulendiagramm: eine Reihe, Wert beim Antippen (unter dem Diagramm)
   function bars(values, labels, tipFmt, color) {
     const max = Math.max(1, ...values);
-    const maxI = values.indexOf(Math.max(...values));
     const wrap = el("div");
     const area = el("div", { class: "bars", role: "img", "aria-label": labels.map((l, i) => l + ": " + values[i]).join(", ") });
     const tip = el("div", { class: "bars-tip", text: "Tippe auf eine Säule für den Wert." });
@@ -80,7 +113,6 @@
       const col = el("button", { class: "b", "aria-label": tipFmt(i, v) });
       const h = Math.round(120 * v / max);
       col.appendChild(el("i", { style: { height: (v ? Math.max(2, h) : 0) + "px", background: color || "var(--accent)" } }));
-      if (i === maxI && v) col.appendChild(el("span", { class: "val", text: UC.fmtNum(v) }));
       col.onclick = () => {
         UC.$$(".b", area).forEach((x) => x.classList.toggle("sel", x === col));
         tip.textContent = tipFmt(i, v);
@@ -164,20 +196,30 @@
     if (tw.length) {
       const maxW = tw[0][1];
       const w = el("div", { class: "words" });
-      for (const [word, n] of tw) {
+      for (const [key, n] of tw) {
+        const word = top(st.spell.get(key), 1)[0][0];
         const size = 13 + Math.round(13 * Math.sqrt(n / maxW));
         const b = el("button", { style: { fontSize: size + "px" } }, el("span", { text: word }), el("em", { text: UC.fmtNum(n) }));
-        b.onclick = () => UC.app.searchFor(word);
+        b.onclick = () => UC.app.searchFor("\"" + word + "\"", year ? { year } : {});
         w.appendChild(b);
       }
-      body.appendChild(card("Eure Wörter", el("div", { class: "sub", text: "Tippe auf ein Wort, um danach zu suchen." }), w));
+      body.appendChild(card("Eure Wörter", el("div", { class: "sub", text: "Die 30 häufigsten Wörter – ohne Füllwörter wie „und“, „ich“, „das“. Die Zahl zeigt, in wie vielen Nachrichten das Wort vorkommt. Tippe darauf, um alle zu sehen." }), w));
     }
 
     // Liebe in Zahlen
     const phrases = (D.cfg.lovePhrases || []);
     if (phrases.length) {
+      const rows = el("div", { class: "love-rows" });
+      phrases.forEach((p, j) => {
+        const [a, b] = st.loveP[j];
+        if (!a && !b) return;
+        rows.appendChild(rec("❤️", "„" + p + "“", D.name(0) + ": " + UC.fmtNum(a) + " · " + D.name(1) + ": " + UC.fmtNum(b) + " · zusammen " + UC.fmtNum(a + b),
+          () => UC.app.searchFor("\"" + p + "\"", year ? { year } : {})));
+      });
       body.appendChild(card("Liebe in Zahlen",
-        el("div", { class: "sub", text: "Nachrichten mit „" + phrases.join("“, „") + "“" }),
+        el("div", { class: "sub", text: "Anzahl Nachrichten mit diesen Worten. Tippe darauf, um sie alle zu sehen." }),
+        rows,
+        el("div", { class: "sub", style: { marginTop: "12px" }, text: "Mindestens eins davon" }),
         whoGrid(st.love[0], st.love[1], UC.fmtNum),
         el("div", { class: "sub", style: { marginTop: "12px" }, text: "„Guten Morgen“ & „Gute Nacht“" }),
         whoGrid(st.morning[0] + st.night[0], st.morning[1] + st.night[1], UC.fmtNum)));
@@ -185,7 +227,25 @@
 
     // Rekorde
     const recs = el("div");
+    const openAt = (i) => () => UC.app.openInChat(i, { flash: true, align: "top" });
     if (st.busiest >= 0) recs.appendChild(rec("🔥", "Aktivster Tag", UC.fmtDate(st.busiest * 86400, "wmed") + " · " + UC.fmtNum(st.busiestN) + " Nachrichten", () => UC.app.showDay(st.busiest)));
+    const ymTop = top(st.perYm, 1)[0];
+    if (ymTop) {
+      const yy = Math.floor(ymTop[0] / 12), mm = ymTop[0] % 12;
+      recs.appendChild(rec("🗓️", "Aktivster Monat", UC.MON[mm] + " " + yy + " · " + UC.fmtNum(ymTop[1]) + " Nachrichten",
+        () => UC.app.openInChat(D.idxAtOrAfter(UC.tsOf(yy, mm + 1, 1)), { align: "top" })));
+    }
+    if (st.talk.i >= 0 && st.talk.sec >= 600) recs.appendChild(rec("💬", "Längstes Gespräch am Stück",
+      fmtSpan(st.talk.sec) + " · " + UC.fmtNum(st.talk.n) + " Nachrichten · " + UC.fmtDate(D.M[st.talk.i][D.T], "med"), openAt(st.talk.i)));
+    if (st.call.i >= 0) recs.appendChild(rec("📞", "Längstes Telefonat",
+      fmtSpan(st.call.sec) + " · " + UC.fmtDate(D.M[st.call.i][D.T], "med"), openAt(st.call.i)));
+    if (st.voice.i >= 0) recs.appendChild(rec("🎤", "Längste Sprachnachricht",
+      D.name(D.M[st.voice.i][D.S]) + " · " + UC.fmtDur(st.voice.sec) + " · " + UC.fmtDate(D.M[st.voice.i][D.T], "med"), openAt(st.voice.i)));
+    const phTop = top(st.photoDay, 1)[0];
+    if (phTop && phTop[1] > 1) recs.appendChild(rec("📸", "Meiste Fotos an einem Tag",
+      UC.fmtNum(phTop[1]) + " Fotos · " + UC.fmtDate(phTop[0] * 86400, "wmed"), () => UC.app.showDay(phTop[0])));
+    if (st.salvo.i >= 0 && st.salvo.n > 5) recs.appendChild(rec("🗯️", "Meiste Nachrichten am Stück",
+      D.name(D.M[st.salvo.i][D.S]) + " · " + UC.fmtNum(st.salvo.n) + " Nachrichten ohne Antwort · " + UC.fmtDate(D.M[st.salvo.i][D.T], "med"), openAt(st.salvo.i)));
     if (st.longest >= 0) recs.appendChild(rec("📜", "Längste Nachricht", D.name(D.M[st.longest][D.S]) + " · " + UC.fmtNum(st.longestLen) + " Zeichen · " + UC.fmtDate(D.M[st.longest][D.T], "med"), () => UC.app.openInChat(st.longest, { flash: true })));
     if (st.streak > 1) recs.appendChild(rec("📆", "Längste Serie", UC.fmtNum(st.streak) + " Tage ohne Pause, bis " + UC.fmtDate(st.streakEnd * 86400, "med"), null));
     const r0 = median(st.resp[0]), r1 = median(st.resp[1]);

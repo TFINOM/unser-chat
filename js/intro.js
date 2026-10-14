@@ -23,9 +23,9 @@
     let years = ny - sy - ((nm < sm || (nm === sm && nd < sd)) ? 1 : 0);
     const days = UC.dayNum(now) - UC.dayNum(sinceTs);
     const photos = UC.media.visualList().length || D.raw.m.reduce((s, r) => s + (r[3] === 1 ? 1 : 0), 0);
-    const phrases = (cfg.lovePhrases || []).map((p) => p.toLowerCase());
+    const toks = D.loveTokens();
     let love = 0;
-    if (phrases.length) for (const r of D.M) if (r[3] === 0 && r[4]) { const t = r[4].toLowerCase(); for (const p of phrases) if (t.indexOf(p) >= 0) { love++; break; } }
+    if (toks.length) for (let i = 0; i < D.N; i++) if (D.loveHits(i, toks)) love++;
 
     const hearts = el("div", { class: "hearts" });
     const em = ["❤️", "💕", "💖", "🤍", "💗"];
