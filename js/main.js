@@ -104,9 +104,12 @@
       };
       body.append(imp, del);
     }
-    const built = D.raw.built ? UC.fmtDate(Math.floor(D.raw.built), "short") : "";
+    // Welche Chat-Datei ist importiert? (hilft beim Testen verschiedener Stände)
+    const built = D.raw.built ? new Date(D.raw.built * 1000).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+    const vids = D.media.filter((x) => (x.k === 2 || x.k === 5) && x.f).length;
     body.appendChild(el("div", { class: "empty small", style: { padding: "18px 16px" },
-      text: UC.fmtNum(D.N) + " Nachrichten · " + UC.fmtNum(D.media.length) + " Medien" + (built ? " · Stand " + built : "") + " · 100 % offline" }));
+      text: UC.fmtNum(D.N) + " Nachrichten · " + UC.fmtNum(D.media.length) + " Medien, davon " + UC.fmtNum(vids) + " Videos" +
+        (built ? " · Chat-Datei vom " + built : "") + " · 100 % offline" }));
   };
 
   // ---------- Tor (Import / Sperre) ----------

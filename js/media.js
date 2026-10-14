@@ -201,12 +201,18 @@
         node.setAttribute("playsinline", "");
         const poster = await media.url(info.th);
         if (poster) node.poster = poster;
+        node.addEventListener("error", () => {
+          const code = node.error ? node.error.code : "?";
+          stage.appendChild(el("div", { class: "novideo", text: "Das Video konnte nicht abgespielt werden (Fehler " + code + ")." }));
+        });
         node.src = await media.url(info.f);
+        try { const p = node.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* Antippen startet */ }
       } else {
         node = el("img", { alt: "" });
         const u = await media.url(info.f || info.th);
         if (u) node.src = u;
-        if (m[D.K] === 2) stage.appendChild(el("div", { class: "badge", style: { position: "absolute", bottom: "10px" }, text: "Nur Vorschaubild" }));
+        if (m[D.K] === 2 || m[D.K] === 5) stage.appendChild(el("div", { class: "novideo",
+          text: "Dieses Video ist in der importierten Chat-Datei nicht enthalten (nur Vorschaubild). Neue Datei importieren: ⋯ → „Neue Chat-Datei importieren“." }));
       }
       stage.appendChild(node);
       prev.style.visibility = pos > 0 ? "visible" : "hidden";
