@@ -113,6 +113,7 @@
     for (const v of waveValues(info, i)) bars.appendChild(el("i", { style: { height: Math.max(3, Math.round(3 + v * 2.5)) + "px" } }));
     bars.appendChild(el("span", { class: "dot" }));
     const t = el("span", { class: "t" }, UC.fmtTime(m[D.T]));
+    if (D.chats.length > 1) t.insertBefore(el("i", { class: "chat-dot c" + (m[D.C] % 6), title: D.chats[m[D.C]].name }), t.firstChild);
     if (m[D.S] === 0 && ticksFn) t.appendChild(ticksFn());
     if (D.isFav(i)) t.insertBefore(icon("i-heart-fill", "fav"), t.firstChild);
     const ui = el("div", { class: "voice" },

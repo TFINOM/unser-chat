@@ -72,15 +72,16 @@
       section("Angezeigte Chats");
       D.chats.forEach((c, ci) => {
         const b = el("button", { class: "opt" },
-          el("span", null, c.name, el("div", { class: "muted small", text: UC.fmtDate(c.first, "med") + " – " + UC.fmtDate(c.last, "med") + " · " + UC.fmtNum(c.n) })),
+          el("span", null, el("i", { class: "chat-dot c" + (ci % 6) }), c.name, el("div", { class: "muted small", text: UC.fmtDate(c.first, "med") + " – " + UC.fmtDate(c.last, "med") + " · " + UC.fmtNum(c.n) })),
           el("span", { class: "check" + (D.chatOn[ci] ? " on" : "") }));
         b.onclick = () => {
           const arr = D.chatOn.slice();
           arr[ci] = !arr[ci];
           if (!arr.some(Boolean)) { UC.toast("Mindestens ein Chat muss sichtbar sein"); return; }
+          const ts = UC.chat.currentTs();  // Position merken, bevor sich die Ansicht ändert
           D.setChatOn(arr);
           b.querySelector(".check").classList.toggle("on", arr[ci]);
-          UC.chat.refresh();
+          UC.chat.refresh(ts);
         };
         body.appendChild(b);
       });
@@ -106,9 +107,8 @@
     }
     // Welche Chat-Datei ist importiert? (hilft beim Testen verschiedener Stände)
     const built = D.raw.built ? new Date(D.raw.built * 1000).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
-    const vids = D.media.filter((x) => (x.k === 2 || x.k === 5) && x.f).length;
     body.appendChild(el("div", { class: "empty small", style: { padding: "18px 16px" },
-      text: UC.fmtNum(D.N) + " Nachrichten · " + UC.fmtNum(D.media.length) + " Medien, davon " + UC.fmtNum(vids) + " Videos" +
+      text: UC.fmtNum(D.N) + " Nachrichten · " + UC.fmtNum(D.media.length) + " Medien" +
         (built ? " · Chat-Datei vom " + built : "") + " · 100 % offline" }));
   };
 
@@ -298,8 +298,8 @@
     if (lock && lock.hash) showLock(lock, go); else go();
   }
 
-  // Links, die iOS direkt an eine App weitergibt (z. B. Google Maps), aus der Home-Bildschirm-App
-  // über Safari öffnen – sonst bleibt beim Zurückkommen ein leeres Browserfenster stehen.
+  // Links, die iOS direkt an eine App weitergibt (z. B. Google Maps): Danach bleibt in der
+  // Home-Bildschirm-App ein leeres Browserfenster stehen – das schließen wir beim Zurückkommen.
   const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const STANDALONE = navigator.standalone === true || !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
   function appLink(href) {
@@ -313,16 +313,24 @@
     if (/(^|\.)amazon\.[a-z.]+$/.test(host)) return true;
     return false;
   }
-  function openViaSafari(href) {
+  // Wie vorher direkt öffnen (iOS gibt den Link an die App weiter). Das Browserfenster, das dabei
+  // leer zurückbleibt, beim Zurückkommen schließen – klappt das nicht, bleibt das X wie bisher.
+  function openAppLink(href) {
+    let w = null;
+    try { w = window.open(href, "_blank"); } catch (e) { w = null; }
+    if (!w) return;
     let left = false;
-    const onVis = () => { if (document.visibilityState === "hidden") left = true; };
-    document.addEventListener("visibilitychange", onVis);
-    window.location.href = "x-safari-" + href;
-    // Klappt das nicht (App bleibt sichtbar), wie bisher im Browserfenster öffnen
-    setTimeout(() => {
+    const tryClose = () => { if (left) { try { w.close(); } catch (e) { /* egal */ } cleanup(); } };
+    const onVis = () => { if (document.visibilityState === "hidden") left = true; else tryClose(); };
+    const cleanup = () => {
       document.removeEventListener("visibilitychange", onVis);
-      if (!left && document.visibilityState === "visible") window.open(href, "_blank", "noopener");
-    }, 1500);
+      window.removeEventListener("focus", tryClose);
+      window.removeEventListener("pageshow", tryClose);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", tryClose);
+    window.addEventListener("pageshow", tryClose);
+    setTimeout(cleanup, 15 * 60 * 1000);
   }
 
   // Externe Links: in der iOS-Hülle über Safari öffnen, sonst neuer Tab
@@ -334,7 +342,7 @@
     e.preventDefault();
     const h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ucopen;
     if (h) h.postMessage(href);
-    else if (IOS && STANDALONE && /^https?:/i.test(href) && appLink(href)) openViaSafari(href);
+    else if (IOS && STANDALONE && /^https?:/i.test(href) && appLink(href)) openAppLink(href);
     else window.open(href, "_blank", "noopener");
   }, true);
 

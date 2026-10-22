@@ -20,7 +20,7 @@
   function metaEl(i) {
     const m = D.M[i];
     const meta = el("span", { class: "meta" });
-    if (D.chatTag[m[D.C]] && D.chats.length > 1) meta.appendChild(el("span", { class: "chat-tag", text: D.chats[m[D.C]].name }));
+    if (D.chats.length > 1) meta.appendChild(el("i", { class: "chat-dot c" + (m[D.C] % 6), title: D.chats[m[D.C]].name }));
     if (m[D.F] & 1) meta.appendChild(el("span", { class: "edited", text: "Bearbeitet" }));
     if (D.isFav(i)) meta.appendChild(icon("i-heart-fill", "fav"));
     meta.appendChild(document.createTextNode(UC.fmtTime(m[D.T])));
@@ -316,7 +316,8 @@
   function currentTs() {
     const row = topRow();
     if (!row) return null;
-    return D.M[D.V[+row.dataset.p]][D.T];
+    const i = D.V[+row.dataset.p];
+    return i == null || !D.M[i] ? null : D.M[i][D.T];
   }
   function updatePill() {
     const ts = currentTs();
@@ -388,16 +389,24 @@
     onIdle();
   }
   function jumpToTs(ts, opts) {
-    const i = D.idxAtOrAfter(ts);
+    let i = D.idxAtOrAfter(ts);
     if (i >= D.N) { jumpToEnd(); return; }
+    // Ist nur ein Teil der Chats eingeblendet: zur nächsten sichtbaren Nachricht, Filter bleibt
+    if (D.filtered) i = D.V[D.viewPos(i)];
     jumpToIndex(i, Object.assign({ align: "top" }, opts || {}));
+  }
+  // Zeitraum der gerade sichtbaren Nachrichten (bei Chat-Filter nur der eingeblendeten Chats)
+  function viewRange() {
+    const V = D.V;
+    return V && V.length ? [D.M[V[0]][D.T], D.M[V[V.length - 1]][D.T]] : [D.firstTs, D.lastTs];
   }
 
   // ---------- Zeitleiste rechts ----------
   function updateScrub() {
     const ts = currentTs();
-    if (ts == null || D.lastTs <= D.firstTs) return;
-    const f = (ts - D.firstTs) / (D.lastTs - D.firstTs);
+    const [a, b] = viewRange();
+    if (ts == null || b <= a) return;
+    const f = Math.max(0, Math.min(1, (ts - a) / (b - a)));
     const H = scrub.clientHeight - 36;
     scrub.querySelector(".thumb").style.top = Math.round(f * H) + "px";
   }
@@ -407,13 +416,15 @@
     function at(y) {
       const r = scrub.getBoundingClientRect();
       const f = Math.max(0, Math.min(1, (y - r.top - 18) / (r.height - 36)));
-      dragTs = D.firstTs + f * (D.lastTs - D.firstTs);
+      const [a, b] = viewRange();
+      dragTs = a + f * (b - a);
       thumb.style.top = Math.round(f * (r.height - 36)) + "px";
       bub.style.top = Math.round(f * (r.height - 36) + 18) + "px";
       bub.textContent = UC.fmtDate(dragTs, "month");
     }
     scrub.addEventListener("pointerdown", (e) => {
-      if (D.lastTs <= D.firstTs) return;
+      const [a, b] = viewRange();
+      if (b <= a) return;
       scrub.setPointerCapture(e.pointerId);
       scrub.classList.add("drag", "show");
       at(e.clientY);
@@ -425,7 +436,7 @@
       scrub.classList.remove("drag");
       if (dragTs != null) {
         const d = UC.D(dragTs);
-        jumpToTs(UC.tsOf(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+        jumpToTs(Math.max(viewRange()[0], UC.tsOf(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)));
         dragTs = null;
       }
     };
@@ -454,8 +465,8 @@
     } else banner.hidden = true;
     updateHeader();
   }
-  function refresh() {
-    const ts = currentTs();
+  function refresh(tsVorher) {
+    const ts = tsVorher !== undefined ? tsVorher : currentTs();
     updateBanner();
     if (ts != null) jumpToTs(ts); else jumpToEnd();
   }
@@ -486,7 +497,7 @@
     const body = el("div");
     const info = el("div", { class: "opt", style: { display: "block" } },
       el("div", { text: D.name(m[D.S]) + " · " + UC.fmtDate(m[D.T]) + ", " + UC.fmtTime(m[D.T]) }),
-      D.chats.length > 1 ? el("div", { class: "muted small", text: "Chat: " + D.chats[m[D.C]].name }) : null);
+      D.chats.length > 1 ? el("div", { class: "muted small" }, el("i", { class: "chat-dot c" + (m[D.C] % 6) }), " " + D.chats[m[D.C]].name) : null);
     const fav = el("button", { class: "opt", text: D.isFav(i) ? "💔  Aus Favoriten entfernen" : "❤️  Als Favorit merken" });
     const cp = el("button", { class: "opt", text: "📋  Text kopieren" });
     const day = el("button", { class: "opt", text: "📅  Diesen Tag im Kalender" });

@@ -127,7 +127,12 @@ a { color: var(--link); }
 .bubble .meta { float: right; margin: 6px 0 -4px 10px; font-size: 11px; color: var(--in-meta); display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; position: relative; top: 2px; }
 .row.me .bubble .meta { color: var(--out-meta); }
 .bubble .meta .fav { color: #e5484d; width: 12px; height: 12px; }
-.bubble .meta .chat-tag { font-size: 10px; padding: 0 4px; border-radius: 4px; background: rgba(0, 0, 0, 0.07); }
+/* Handy-Punkt: zeigt, aus welchem Chat (Handy) eine Nachricht stammt; Legende unter ⋯ */
+.chat-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex: none; vertical-align: middle; }
+.bubble .meta .chat-dot { margin-right: 1px; }
+.opt .chat-dot { width: 9px; height: 9px; margin-right: 6px; position: relative; top: -1px; }
+.chat-dot.c0 { background: #e2a03f; } .chat-dot.c1 { background: #7c6fd6; } .chat-dot.c2 { background: #e0607e; }
+.chat-dot.c3 { background: #2fb3a6; } .chat-dot.c4 { background: #a97c50; } .chat-dot.c5 { background: #8b8b8b; }
 .bubble.big-emoji { background: transparent !important; box-shadow: none; padding: 0 2px; }
 .bubble.big-emoji::before { display: none; }
 .bubble.big-emoji .txt { font-size: 2.6em; line-height: 1.15; }
@@ -460,12 +465,17 @@ a { color: var(--link); }
   padding: calc(var(--safe-top) + 8px) 14px 12px 14px;
   background: none; border: 0;
 }
+/* Farbe der iOS-Statusleiste (folgt dem System, nicht der App-Einstellung) */
+:root { --sb: #ffffff; }
+@media (prefers-color-scheme: dark) { :root { --sb: #000000; } }
+/* Glasstreifen: beginnt oben in der Farbe der Statusleiste (kein Absatz), wird nach unten durchsichtig */
 .chat-top::before {
-  content: ""; position: absolute; inset: 0 0 -26px 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(to bottom, var(--chat-bg) 0%, color-mix(in srgb, var(--chat-bg) 82%, transparent) 55%, transparent 100%);
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+  content: ""; position: absolute; inset: 0 0 -30px 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(to bottom, var(--sb) 0%, color-mix(in srgb, var(--sb) 70%, transparent) 28%,
+    color-mix(in srgb, var(--chat-bg) 40%, transparent) 68%, transparent 100%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%); backdrop-filter: blur(12px) saturate(160%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
 }
 .chat-top .avatar { width: 42px; height: 42px; font-size: 18px; box-shadow: none; }
 .chat-title .name { font-size: 17px; font-weight: 600; color: var(--text); }
