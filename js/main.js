@@ -298,6 +298,33 @@
     if (lock && lock.hash) showLock(lock, go); else go();
   }
 
+  // Links, die iOS direkt an eine App weitergibt (z. B. Google Maps), aus der Home-Bildschirm-App
+  // über Safari öffnen – sonst bleibt beim Zurückkommen ein leeres Browserfenster stehen.
+  const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const STANDALONE = navigator.standalone === true || !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  function appLink(href) {
+    let u;
+    try { u = new URL(href); } catch (e) { return false; }
+    const host = u.hostname.toLowerCase().replace(/^www\./, ""), path = u.pathname;
+    if (/^(maps\.app\.goo\.gl|maps\.apple\.com|youtu\.be|fb\.watch|amzn\.to|amzn\.eu)$/.test(host)) return true;
+    if (/(^|\.)(youtube\.com|instagram\.com|tiktok\.com|spotify\.com|facebook\.com|x\.com|twitter\.com)$/.test(host)) return true;
+    if (/^maps\.google\.[a-z.]+$/.test(host)) return true;
+    if (/^(google\.[a-z.]+|goo\.gl)$/.test(host) && path.indexOf("/maps") === 0) return true;
+    if (/(^|\.)amazon\.[a-z.]+$/.test(host)) return true;
+    return false;
+  }
+  function openViaSafari(href) {
+    let left = false;
+    const onVis = () => { if (document.visibilityState === "hidden") left = true; };
+    document.addEventListener("visibilitychange", onVis);
+    window.location.href = "x-safari-" + href;
+    // Klappt das nicht (App bleibt sichtbar), wie bisher im Browserfenster öffnen
+    setTimeout(() => {
+      document.removeEventListener("visibilitychange", onVis);
+      if (!left && document.visibilityState === "visible") window.open(href, "_blank", "noopener");
+    }, 1500);
+  }
+
   // Externe Links: in der iOS-Hülle über Safari öffnen, sonst neuer Tab
   document.addEventListener("click", (e) => {
     const a = e.target.closest && e.target.closest("a[href]");
@@ -306,7 +333,9 @@
     if (!/^(https?:|mailto:|tel:)/i.test(href)) return;
     e.preventDefault();
     const h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ucopen;
-    if (h) h.postMessage(href); else window.open(href, "_blank", "noopener");
+    if (h) h.postMessage(href);
+    else if (IOS && STANDALONE && /^https?:/i.test(href) && appLink(href)) openViaSafari(href);
+    else window.open(href, "_blank", "noopener");
   }, true);
 
   async function boot() {
