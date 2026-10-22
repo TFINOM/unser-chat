@@ -173,7 +173,7 @@ a { color: var(--link); }
 /* Zeitleiste (rechter Rand) */
 .scrubber { position: absolute; top: 56px; bottom: 70px; right: 0; width: 34px; z-index: 2; touch-action: none; opacity: 0; transition: opacity .3s; }
 .scrubber.show, .scrubber.drag { opacity: 1; }
-.scrubber .track { position: absolute; right: 6px; top: 0; bottom: 0; width: 4px; border-radius: 2px; background: rgba(0, 0, 0, 0.12); }
+.scrubber .track { display: none; } /* Schiene ausgeblendet – nur der grüne Griff bleibt */
 :root[data-theme="dark"] .scrubber .track { background: rgba(255, 255, 255, 0.15); }
 .scrubber .thumb { position: absolute; right: 2px; width: 12px; height: 36px; border-radius: 6px; background: var(--accent); box-shadow: var(--shadow-2); top: 0; }
 .scrubber .bubble { position: absolute; right: 26px; top: 0; transform: translateY(-50%); background: var(--accent); color: #fff; font-weight: 600; font-size: 15px; padding: 8px 12px; border-radius: 12px; white-space: nowrap; box-shadow: var(--shadow-2); display: none; max-width: none; }
@@ -630,6 +630,8 @@ a { color: var(--link); }
 
 /* Kein blaues Markieren beim langen Drücken (Text kopieren geht über das Menü) */
 #app, #overlays { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+/* Bilder nicht „anheben“/ziehen – sonst schließt das Loslassen nach langem Drücken das Menü sofort wieder */
+#app img, #overlays img, #app video { -webkit-user-drag: none; user-drag: none; }
 #app input, #app textarea, #overlays input, #overlays textarea { -webkit-user-select: text; user-select: text; }
 .bubble.picked { filter: brightness(0.93); transform: scale(1.02); transition: transform .15s ease, filter .15s ease; }
 

@@ -223,6 +223,16 @@ window.UC = window.UC || {};
       setTimeout(() => { bg.remove(); sh.remove(); }, 320);
       if (opts.onClose) opts.onClose();
     }
+    // Erst eine neue Berührung zählt: Das Loslassen nach langem Drücken erzeugt sonst einen
+    // „Geister-Klick“, der das Menü sofort schließt oder eine Option auslöst.
+    let armed = false;
+    const arm = () => { armed = true; };
+    [bg, sh].forEach((n) => {
+      n.addEventListener("touchstart", arm, { passive: true });
+      n.addEventListener("pointerdown", arm);
+      n.addEventListener("mousedown", arm);
+      n.addEventListener("click", (e) => { if (!armed) { e.preventDefault(); e.stopPropagation(); } }, true);
+    });
     bg.addEventListener("click", close);
     closeBtn.addEventListener("click", close);
     // nach unten wischen schließt
