@@ -6,6 +6,7 @@
   let current = "chat";
   const inited = {};
   let hiddenAt = 0;
+  let shownAt = 0;
 
   // ---------- Darstellung ----------
   function applyTheme() {
@@ -296,6 +297,7 @@
         UC.chat.updateHeader();
         UC.chat.jumpToEnd();
       }
+      stelleWiederherstellen();
       if (!UC.prefs.get("introSeen", false)) UC.intro.show();
       setTimeout(() => UC.data.ensureNorm(), 1500);
     };
@@ -351,14 +353,47 @@
     else window.open(href, "_blank", "noopener");
   }, true);
 
+  // ---------- Leiste oben (Uhrzeit) passend zu Hell/Dunkel ----------
+  // iOS stellt die Leiste nur beim Laden um. Hat das iPhone zwischendurch zwischen
+  // Hell und Dunkel gewechselt, lädt die App beim Zurückkommen einmal neu – an derselben Stelle.
+  function sbSoll() {
+    const t = UC.prefs.get("theme", "auto");
+    const dunkel = t === "dark" || (t !== "light" && !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches));
+    return dunkel ? "dunkel" : "hell";
+  }
+  function sbAnpassen() {
+    if (document.hidden || !inited.base || UC.$("#app").hidden || !UC.$("#gate").hidden) return;
+    if (UC.$("#overlays").children.length) return; // Intro, Bild, Menü offen
+    if (UC.$$("audio, video").some((m) => !m.paused)) return;
+    if (sbSoll() === document.documentElement.dataset.sb) return;
+    try {
+      if (Date.now() - (+sessionStorage.getItem("uc.sbNeu") || 0) < 30000) return;
+      sessionStorage.setItem("uc.sbNeu", String(Date.now()));
+      sessionStorage.setItem("uc.stelle", JSON.stringify({ tab: current, ts: current === "chat" ? UC.chat.currentTs() : null }));
+    } catch (e) { return; }
+    location.reload();
+  }
+  function stelleWiederherstellen() {
+    let st = null;
+    try { st = JSON.parse(sessionStorage.getItem("uc.stelle") || "null"); sessionStorage.removeItem("uc.stelle"); } catch (e) { st = null; }
+    if (!st) return;
+    if (st.tab && st.tab !== "chat") showTab(st.tab);
+    else if (st.ts != null) requestAnimationFrame(() => UC.chat.jumpToTs(st.ts));
+  }
+
   async function boot() {
     applyTheme();
-    if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+    if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+      applyTheme();
+      if (Date.now() - shownAt < 3000) sbAnpassen(); // iOS meldet den Wechsel manchmal erst kurz nach dem Zurückkommen
+    });
     if ("serviceWorker" in navigator && location.protocol === "https:") {
       navigator.serviceWorker.register("sw.js").catch(() => { /* egal */ });
     }
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) { hiddenAt = Date.now(); return; }
+      shownAt = Date.now();
+      sbAnpassen();
       const lock = UC.data && UC.data.cfg && UC.data.cfg.lock;
       if (lock && lock.hash && hiddenAt && Date.now() - hiddenAt > 120000 && UC.$("#gate").hidden) showLock(lock, () => {});
     });
