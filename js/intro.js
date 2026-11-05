@@ -46,10 +46,21 @@
       el("div", { class: "count" }, c2, el("span", { text: "gemeinsame Tage" })),
       photos ? el("div", { class: "count" }, c3, el("span", { text: "Fotos & Videos" })) : null,
       love ? el("div", { class: "count" }, c4, el("span", { text: "mal „" + (cfg.lovePhrases[0] || "Ich liebe dich") + "“ & Co." })) : null));
+    let ded = null;
     if (cfg.dedication) {
-      steps.push(el("div", { class: "step" },
-        el("div", { class: "ded", text: cfg.dedication }),
-        cfg.signature ? el("div", { class: "sig", text: cfg.signature }) : null));
+      // Lange Widmung: etwas kleinere Schrift; ist sie trotzdem länger als der Platz, unten sanft
+      // ausblenden, bis zum Ende gescrollt wurde (zeigt, dass es weitergeht)
+      // Unterschrift steht am Ende des Textes (erscheint also erst nach dem Runterscrollen)
+      ded = el("div", { class: "ded" + (cfg.dedication.length > 450 ? " lang" : "") },
+        el("div", { text: cfg.dedication }),
+        cfg.signature ? el("div", { class: "sig", text: cfg.signature }) : null);
+      const mehr = () => {
+        const rest = ded.scrollHeight - ded.clientHeight - ded.scrollTop;
+        ded.classList.toggle("mehr", ded.scrollHeight > ded.clientHeight + 4 && rest > 6);
+      };
+      ded.addEventListener("scroll", mehr, { passive: true });
+      ded._mehr = mehr;
+      steps.push(el("div", { class: "step" }, ded));
     }
     const stage = el("div", { class: "stage" }, ...steps);
     const dots = el("div", { class: "dots" }, ...steps.map(() => el("i")));
@@ -65,6 +76,7 @@
       UC.$$("i", dots).forEach((d, i) => d.classList.toggle("on", i <= n));
       nextBtn.textContent = n === steps.length - 1 ? "Los geht’s ❤️" : "Weiter";
       skipBtn.hidden = n === steps.length - 1;
+      if (ded && ded._mehr) setTimeout(ded._mehr, 50);
       if (n === 1) {
         countUp(c1, D.N, 2200); countUp(c2, days, 2200);
         if (photos) countUp(c3, photos, 2200);

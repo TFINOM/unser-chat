@@ -391,7 +391,10 @@ a { color: var(--link); }
 .intro .count { margin: 12px 0; }
 .intro .count b { display: block; font-size: 46px; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
 .intro .count span { opacity: .85; font-size: 16px; }
-.intro .ded { max-width: 520px; font-size: 18px; line-height: 1.55; text-align: left; white-space: pre-wrap; max-height: 62vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.intro .ded { max-width: 520px; font-size: 18px; line-height: 1.55; text-align: left; white-space: pre-wrap; max-height: 64vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.intro .ded.lang { font-size: 16.5px; line-height: 1.5; }
+.intro .ded .sig { margin-top: 18px; padding-bottom: 4px; }
+.intro .ded.mehr { -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent 100%); mask-image: linear-gradient(to bottom, #000 80%, transparent 100%); }
 .intro .sig { margin-top: 14px; font-style: italic; font-size: 19px; align-self: flex-end; max-width: 520px; width: 100%; text-align: right; }
 .intro .next { position: absolute; left: 0; right: 0; bottom: calc(var(--safe-bottom) + 24px); display: flex; justify-content: center; gap: 10px; z-index: 2; }
 .intro .next .btn { background: #fff; color: #6e0f25; padding: 13px 22px; border-radius: 26px; }
