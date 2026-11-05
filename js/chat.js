@@ -501,13 +501,20 @@
     const fav = el("button", { class: "opt", text: D.isFav(i) ? "💔  Aus Favoriten entfernen" : "❤️  Als Favorit merken" });
     const cp = el("button", { class: "opt", text: "📋  Text kopieren" });
     const day = el("button", { class: "opt", text: "📅  Diesen Tag im Kalender" });
-    body.append(info, fav, m[D.X] ? cp : null, day);
+    const save = UC.media.canSave(i) ? el("button", { class: "opt", text: "📤  Sichern oder teilen" }) : null;
+    let file = null;
+    if (save) UC.media.fileFor(i).then((f) => { file = f; });  // vorab laden (iOS will das Teilen direkt beim Tippen)
+    body.append(...[info, fav, m[D.X] ? cp : null, save, day].filter(Boolean));  // append(null) würde „null“ anzeigen
     const bub = inner.querySelector('[data-i="' + i + '"]');
     if (bub) bub.classList.add("picked");
     const s = UC.sheet({ title: "Nachricht", body, onClose: () => { if (bub) bub.classList.remove("picked"); } });
     fav.onclick = () => { toggleFav(i); s.close(); };
     cp.onclick = () => { copyText(m[D.X] || ""); UC.toast("Kopiert"); s.close(); };
     day.onclick = () => { s.close(); UC.app.showDay(Math.floor(m[D.T] / 86400)); };
+    if (save) save.onclick = () => {
+      if (file) { UC.media.shareFile(file); s.close(); }
+      else UC.media.fileFor(i).then((f) => { UC.media.shareFile(f); s.close(); });
+    };
   }
 
   function init() {

@@ -4,6 +4,7 @@
   const { el, icon } = UC;
   let D, input, clearBtn, filters, out;
   let state = { sender: -1, type: "all", year: 0, newest: true };
+  let view = "list";  // "list" oder "grid" (Kacheln) – wird gemerkt
   let results = [], shown = 0, re = null, seq = 0;
   const TYPES = [
     ["all", "Alles"], ["text", "Text"], ["foto", "Fotos"], ["audio", "Sprachnachrichten"], ["video", "Videos"],
@@ -32,6 +33,12 @@
       mk(D.name(1), state.sender === 1, () => { state.sender = 1; renderFilters(); run(); }),
       mk("Art: " + TYPES.find((t) => t[0] === state.type)[1] + " ▾", state.type !== "all", pickType),
       mk(state.newest ? "Neueste zuerst ↓" : "Älteste zuerst ↑", false, () => { state.newest = !state.newest; renderFilters(); show(true); }),
+      mk(view === "grid" ? "▦ Kacheln" : "☰ Liste", false, () => {
+        view = view === "grid" ? "list" : "grid";
+        UC.prefs.set("searchView", view);
+        renderFilters();
+        if (results.length) show(true);
+      }),
     );
   }
   function pickType() {
@@ -69,6 +76,32 @@
     return b;
   }
 
+  function tileItem(i) {
+    const m = D.M[i], k = m[D.K], s = m[D.S];
+    const info = UC.media.info(i);
+    const when = el("span", { class: "td", text: UC.fmtDate(m[D.T], "short") });
+    let b;
+    if ((k === 1 || k === 2 || k === 4 || k === 5) && info && (info.th || info.f)) {
+      b = el("button", { class: "tile img", "aria-label": (D.KIND_LABEL[k] || "Bild") + " vom " + UC.fmtDate(m[D.T], "short") });
+      const img = el("img", { alt: "", decoding: "async" });
+      UC.media.lazy(img, info.th || info.f, out);
+      b.appendChild(img);
+      if (k === 2 || k === 5) b.appendChild(icon("i-play", "vb"));
+      b.appendChild(when);
+      b.onclick = () => (k === 4 ? UC.app.openInChat(i, { flash: true }) : UC.media.view(i));
+    } else if (k !== 0 && k !== 11 && !m[D.X]) {
+      b = el("button", { class: "tile ico", "aria-label": (D.KIND_LABEL[k] || "Nachricht") + " vom " + UC.fmtDate(m[D.T], "short") },
+        el("span", { text: D.KIND_ICON[k] || "💬" }), when);
+      b.onclick = () => UC.app.openInChat(i, { flash: true, hl: re });
+    } else {
+      let txt = m[D.X] || "";
+      if (k !== 0 && k !== 11) txt = (D.KIND_ICON[k] || "") + " " + txt;
+      b = el("button", { class: "tile txt s" + s }, el("div", { class: "tt", html: snippet(txt) }), when);
+      b.onclick = () => UC.app.openInChat(i, { flash: true, hl: re });
+    }
+    return b;
+  }
+
   function histogram(all) {
     const counts = new Map();
     for (const i of all) { const y = UC.D(D.M[i][D.T]).getUTCFullYear(); counts.set(y, (counts.get(y) || 0) + 1); }
@@ -99,13 +132,14 @@
       el("span", { text: UC.plural(list.length, "Treffer", "Treffer") + (state.year ? " in " + state.year : "") }),
       state.year ? el("button", { text: "Alle Jahre", onclick: () => { state.year = 0; show(true); } }) : null);
     out.append(histogram(results), head);
-    const box = el("div");
+    const grid = view === "grid";
+    const box = el("div", { class: grid ? "sgrid" : "" });
     out.appendChild(box);
     shown = 0;
     const more = () => {
       const f = document.createDocumentFragment();
-      const end = Math.min(list.length, shown + 60);
-      for (; shown < end; shown++) f.appendChild(resultItem(list[shown]));
+      const end = Math.min(list.length, shown + (grid ? 150 : 60));
+      for (; shown < end; shown++) f.appendChild(grid ? tileItem(list[shown]) : resultItem(list[shown]));
       box.appendChild(f);
     };
     more();
@@ -180,6 +214,7 @@
     clearBtn = UC.$("#q-clear");
     filters = UC.$("#search-filters");
     out = UC.$("#search-results");
+    view = UC.prefs.get("searchView", "list") === "grid" ? "grid" : "list";
     renderFilters();
     emptyState();
     const deb = UC.debounce(run, 220);

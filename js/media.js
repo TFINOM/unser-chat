@@ -49,6 +49,43 @@
       const mid = m[UC.data.MI];
       return mid >= 0 ? UC.data.media[mid] : null;
     },
+    // Einzelne Datei (Foto, Video, Sprachnachricht …) als File für „Sichern/Teilen“
+    async fileFor(i) {
+      const D = UC.data, m = D.M[i], info = this.info(i);
+      if (!info || !info.f) return null;
+      let blob = null;
+      try {
+        if (this.mode === "bundle") blob = await (await fetch("data/" + info.f)).blob();
+        else blob = await UC.idb.get("files", info.f);
+      } catch (e) { blob = null; }
+      if (!blob) return null;
+      const ext = (info.f.split(".").pop() || "bin").toLowerCase();
+      const TYPES = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif",
+        mp4: "video/mp4", mov: "video/quicktime", m4a: "audio/mp4", mp3: "audio/mpeg", opus: "audio/ogg", pdf: "application/pdf" };
+      const d = UC.D(m[D.T]), z = (n) => String(n).padStart(2, "0");
+      const name = "Unser Chat " + d.getUTCFullYear() + "-" + z(d.getUTCMonth() + 1) + "-" + z(d.getUTCDate()) + " " +
+        z(d.getUTCHours()) + "." + z(d.getUTCMinutes()) + "." + ext;
+      return new File([blob], name, { type: blob.type || TYPES[ext] || "application/octet-stream" });
+    },
+    // Teilen-Menü von iOS öffnen („Bild sichern“, „In Dateien sichern“, AirDrop …); file vorher laden,
+    // damit der Aufruf direkt im Antippen passiert (sonst lehnt iOS ab)
+    shareFile(file) {
+      if (!file) { UC.toast("Diese Datei ist nicht in der Chat-Datei enthalten."); return; }
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file] }).catch((e) => {
+          if (e && e.name === "NotAllowedError") UC.toast("Bitte noch einmal tippen");
+        });
+        return;
+      }
+      const u = URL.createObjectURL(file);
+      const a = el("a", { href: u, download: file.name });
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(u), 60000);
+    },
+    canSave(i) {
+      const m = UC.data.M[i], info = this.info(i);
+      return !!(info && info.f) && [1, 2, 3, 4, 5, 6].indexOf(m[UC.data.K]) >= 0;
+    },
     // Liste aller Fotos/Videos (für Galerie und Wischen im Betrachter)
     visualList() {
       if (this._vis) return this._vis;
@@ -179,11 +216,13 @@
     const title = el("div", { class: "grow" });
     const cap = el("div", { class: "cap" });
     const closeBtn = el("button", { class: "icon-btn", "aria-label": "Schließen" }, icon("i-close"));
+    const shareBtn = el("button", { class: "icon-btn", "aria-label": "Sichern oder teilen" }, icon("i-share"));
+    let curFile = null;
     const prev = el("button", { class: "icon-btn", "aria-label": "Vorheriges" }, icon("i-left"));
     const next = el("button", { class: "icon-btn", "aria-label": "Nächstes" }, icon("i-right"));
     const toChat = el("button", { class: "btn", text: "Im Chat zeigen" });
     const v = el("div", { class: "viewer" },
-      el("div", { class: "vt" }, closeBtn, title),
+      el("div", { class: "vt" }, closeBtn, title, shareBtn),
       stage, cap,
       el("div", { class: "vb" }, prev, toChat, next));
     document.getElementById("overlays").appendChild(v);
@@ -195,6 +234,10 @@
       const info = media.info(i) || {};
       title.replaceChildren(el("b", { text: D.name(m[D.S]) }), el("small", { text: UC.fmtDate(m[D.T]) + ", " + UC.fmtTime(m[D.T]) }));
       cap.textContent = m[D.X] || "";
+      curFile = null;
+      shareBtn.style.visibility = info.f ? "visible" : "hidden";
+      const fi = i;
+      media.fileFor(fi).then((f) => { if (fi === i) curFile = f; });
       scale = 1; tx = 0; ty = 0;
       stage.replaceChildren();
       if ((m[D.K] === 2 || m[D.K] === 5) && info.f) {
@@ -230,6 +273,10 @@
     function onKey(e) { if (e.key === "Escape") close(); if (e.key === "ArrowLeft") go(-1); if (e.key === "ArrowRight") go(1); }
     document.addEventListener("keydown", onKey);
     closeBtn.onclick = close;
+    shareBtn.onclick = () => {
+      if (curFile) media.shareFile(curFile);
+      else media.fileFor(i).then((f) => { curFile = f; media.shareFile(f); });
+    };
     prev.onclick = () => go(-1);
     next.onclick = () => go(1);
     toChat.onclick = () => { close(); UC.app.openInChat(i, { flash: true }); };
