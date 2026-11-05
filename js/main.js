@@ -87,7 +87,12 @@
       });
     }
     section("Darstellung");
-    choice([["auto", "Automatisch (wie iPhone)"], ["light", "Hell"], ["dark", "Dunkel"]], UC.prefs.get("theme", "auto"), (v) => { UC.prefs.set("theme", v); applyTheme(); });
+    choice([["auto", "Automatisch (wie iPhone)"], ["light", "Hell"], ["dark", "Dunkel"]], UC.prefs.get("theme", "auto"), (v) => {
+      UC.prefs.set("theme", v); applyTheme();
+      // Die Leiste oben (Uhrzeit) stellt iOS nur beim Öffnen der App um
+      const dunkel = v === "dark" || (v === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      if ((dunkel ? "dunkel" : "hell") !== document.documentElement.dataset.sb) UC.toast("Die Leiste oben passt sich beim nächsten Öffnen der App an");
+    });
     section("Schriftgröße");
     choice([["normal", "Normal"], ["large", "Groß"]], UC.prefs.get("size", "normal"), (v) => { UC.prefs.set("size", v); applyTheme(); UC.chat.refresh(); });
     section("Mehr");

@@ -479,9 +479,9 @@ a { color: var(--link); }
   padding: calc(var(--safe-top) + 8px) 14px 12px 14px;
   background: none; border: 0;
 }
-/* Farbe der iOS-Statusleiste (folgt dem System, nicht der App-Einstellung) */
+/* Farbe oben unter der Uhr: hell = weiße iOS-Leiste, dunkel = App läuft unter die Uhr (beim Start festgelegt) */
 :root { --sb: #ffffff; }
-@media (prefers-color-scheme: dark) { :root { --sb: #000000; } }
+:root[data-sb="dunkel"] { --sb: #000000; }
 /* Glasstreifen: beginnt oben in der Farbe der Statusleiste (kein Absatz), wird nach unten durchsichtig */
 .chat-top::before {
   content: ""; position: absolute; inset: 0 0 -30px 0; z-index: -1; pointer-events: none;

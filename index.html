@@ -6,6 +6,20 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script>
+/* Statusleiste (iOS liest sie beim Start der App): bei dunkler Darstellung läuft die App unter die Uhr
+   (weiße Uhr auf dunklem Grund), bei heller bleibt die helle Leiste mit dunkler Uhr. */
+(function () {
+  var t = "auto";
+  try { t = JSON.parse(localStorage.getItem("uc.theme") || '"auto"'); } catch (e) { t = "auto"; }
+  var dark = t === "dark" || (t !== "light" && !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches));
+  if (dark) {
+    var m = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (m) m.setAttribute("content", "black-translucent");
+  }
+  document.documentElement.setAttribute("data-sb", dark ? "dunkel" : "hell");
+})();
+</script>
 <meta name="apple-mobile-web-app-title" content="Unser Chat">
 <meta name="format-detection" content="telephone=no">
 <meta name="theme-color" content="#f6f5f3" media="(prefers-color-scheme: light)">
